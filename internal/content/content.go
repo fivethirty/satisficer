@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fivethirty/static/internal/frontmatter"
+	"github.com/fivethirty/satisficer/internal/frontmatter"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
 )

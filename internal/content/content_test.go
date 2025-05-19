@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/static/internal/content"
+	"github.com/fivethirty/satisficer/internal/content"
 )
 
 func TestFromFile(t *testing.T) {

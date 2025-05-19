@@ -1,4 +1,4 @@
-module github.com/fivethirty/static
+module github.com/fivethirty/satisficer
 
 go 1.24.2
 
