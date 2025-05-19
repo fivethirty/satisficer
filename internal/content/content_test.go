@@ -1,0 +1,189 @@
+package content_test
+
+import (
+	"fmt"
+	"math/rand/v2"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/fivethirty/static/internal/content"
+)
+
+func TestFromFile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		files       map[string]string
+		wantContent []content.Content
+		wantError   bool
+	}{
+		{
+			name: "can load files",
+			files: map[string]string{
+				"test1.md": `
+					---
+					{
+						"title": "Test Title 1",
+						"description": "Test Description 1",
+						"created-at": "2025-05-13T0:00:00Z",
+						"updated-at": "2025-05-14T0:00:00Z"
+					}
+					---
+					# Test Content 1
+				`,
+				"foo/test2.md": `
+					---
+					{
+						"title": "Test Title 2",
+						"description": "Test Description 2",
+						"created-at": "2025-05-15T0:00:00Z",
+						"updated-at": "2025-05-16T0:00:00Z"
+					}
+					---
+					# Test Content 2
+				`,
+			},
+			wantContent: []content.Content{
+				{
+					RelativePath: "test1.md",
+					Metadata: content.Metadata{
+						Title:       "Test Title 1",
+						Description: "Test Description 1",
+						CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+						UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+					},
+					HTML: "<h1>Test Content 1</h1>\n",
+				},
+				{
+					RelativePath: "foo/test2.md",
+					Metadata: content.Metadata{
+						Title:       "Test Title 2",
+						Description: "Test Description 2",
+						CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
+						UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+					},
+					HTML: "<h1>Test Content 2</h1>\n",
+				},
+			},
+		},
+		{
+			name: "can load files with missing updated-at",
+			files: map[string]string{
+				"test.md": `
+						---
+						{
+							"title": "Test Title",
+							"description": "Test Description",
+							"created-at": "2025-05-13T0:00:00Z"
+						}
+						---
+						# Test Content
+					`,
+			},
+			wantContent: []content.Content{
+				{
+					RelativePath: "test.md",
+					Metadata: content.Metadata{
+						Title:       "Test Title",
+						Description: "Test Description",
+						CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					},
+					HTML: "<h1>Test Content</h1>\n",
+				},
+			},
+		},
+		{
+			name: "ignores non-markdown files",
+			files: map[string]string{
+				"test1.txt": `
+						super cool content!
+					`,
+				"test.md": `
+						---
+						{
+							"title": "Test Title",
+							"description": "Test Description",
+							"created-at": "2025-05-15T0:00:00Z",
+							"updated-at": "2025-05-16T0:00:00Z"
+						}
+						---
+						# Test Content
+					`,
+			},
+			wantContent: []content.Content{
+				{
+					RelativePath: "test.md",
+					Metadata: content.Metadata{
+						Title:       "Test Title",
+						Description: "Test Description",
+						CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
+						UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+					},
+					HTML: "<h1>Test Content</h1>\n",
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			dir := fmt.Sprintf("content_test-%d", rand.Int())
+			path, err := os.MkdirTemp("", dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = os.RemoveAll(dir) }()
+
+			for name, content := range test.files {
+				content = trimLines(content)
+				err := os.MkdirAll(filepath.Dir(filepath.Join(path, name)), os.ModePerm)
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = os.WriteFile(filepath.Join(path, name), []byte(content), os.ModePerm)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			loader := content.NewLoader()
+			contents, err := loader.FromDir(path)
+			if err != nil {
+				if !test.wantError {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			sortByRelativePath(contents)
+			sortByRelativePath(test.wantContent)
+			if !reflect.DeepEqual(contents, test.wantContent) {
+				t.Fatalf("expected %v, got %v", test.wantContent, contents)
+			}
+		})
+	}
+}
+
+func sortByRelativePath(contents []content.Content) {
+	sort.Slice(contents, func(i, j int) bool {
+		return contents[i].RelativePath < contents[j].RelativePath
+	})
+}
+
+func trimLines(s string) string {
+	s = strings.TrimSpace(s)
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
+}
