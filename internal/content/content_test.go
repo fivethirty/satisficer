@@ -24,7 +24,7 @@ func TestFromFile(t *testing.T) {
 		wantError   bool
 	}{
 		{
-			name: "can load files",
+			name: "loads files",
 			files: map[string]string{
 				"test1.md": `
 					---
@@ -73,7 +73,7 @@ func TestFromFile(t *testing.T) {
 			},
 		},
 		{
-			name: "can load files with missing updated-at",
+			name: "loads files with missing updated-at",
 			files: map[string]string{
 				"test.md": `
 						---
@@ -128,6 +128,87 @@ func TestFromFile(t *testing.T) {
 					HTML: "<h1>Test Content</h1>\n",
 				},
 			},
+		},
+		{
+			name: "returns error if missing title in front matter",
+			files: map[string]string{
+				"test.md": `
+						---
+						{
+							"description": "Test Description",
+							"created-at": "2025-05-15T0:00:00Z",
+							"updated-at": "2025-05-16T0:00:00Z"
+						}
+						---
+						# Test Content
+					`,
+			},
+			wantError: true,
+		},
+		{
+			name: "returns error if missing description in front matter",
+			files: map[string]string{
+				"test.md": `
+						---
+						{
+							"title": "Test Title",
+							"created-at": "2025-05-15T0:00:00Z",
+							"updated-at": "2025-05-16T0:00:00Z"
+						}
+						---
+						# Test Content
+					`,
+			},
+			wantError: true,
+		},
+		{
+			name: "returns error if missing created-at in front matter",
+			files: map[string]string{
+				"test.md": `
+						---
+						{
+							"title": "Test Title",
+							"description": "Test Description",
+							"updated-at": "2025-05-16T0:00:00Z"
+						}
+						---
+						# Test Content
+					`,
+			},
+			wantError: true,
+		},
+		{
+			name: "returns error if front matter is not valid JSON",
+			files: map[string]string{
+				"test.md": `
+						---
+						{
+							"title": "Test Title",
+						---
+						# Test Content
+					`,
+			},
+			wantError: true,
+		},
+		{
+			name: "returns error if empty front matter",
+			files: map[string]string{
+				"test.md": `
+						---
+						---
+						# Test Content
+					`,
+			},
+			wantError: true,
+		},
+		{
+			name: "returns error if no front matter",
+			files: map[string]string{
+				"test.md": `
+						# Test Content
+					`,
+			},
+			wantError: true,
 		},
 	}
 

@@ -25,7 +25,7 @@ func TestFrontMatter(t *testing.T) {
 		wantDecodeError bool
 	}{
 		{
-			name: "can read valid JSON front matter",
+			name: "reads valid JSON front matter",
 			input: `
 				---
 				{
