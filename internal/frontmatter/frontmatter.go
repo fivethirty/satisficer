@@ -114,5 +114,5 @@ func isSeparator(line []byte) bool {
 			return false
 		}
 	}
-	return len(line) > 0
+	return len(line) == 3
 }

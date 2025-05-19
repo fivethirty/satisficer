@@ -65,6 +65,30 @@ func TestFrontMatter(t *testing.T) {
 			`,
 			wantGetError: true,
 		},
+		{
+			name: "returns error getting front matter if first delimiter is not 3 dashes",
+			input: `
+				----
+				{
+					"title": "Test"
+				}
+				---
+				# Content
+			`,
+			wantGetError: true,
+		},
+		{
+			name: "returns error decoding front matter if second delimiter is not 3 dashes",
+			input: `
+				---
+				{
+					"title": "Test"
+				}
+				--
+				# Content
+			`,
+			wantDecodeError: true,
+		},
 	}
 
 	for _, test := range tests {
