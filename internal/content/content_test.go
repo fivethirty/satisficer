@@ -20,12 +20,23 @@ func TestFromFile(t *testing.T) {
 	tests := []struct {
 		name        string
 		files       map[string]string
-		wantContent []content.Content
+		wantContent *content.Contents
 		wantError   bool
 	}{
 		{
 			name: "loads files",
 			files: map[string]string{
+				"index.md": `
+					---
+					{
+						"title": "Index",
+						"description": "The Index",
+						"created-at": "2025-05-13T0:00:00Z",
+						"updated-at": "2025-05-14T0:00:00Z"
+					}
+					---
+					# Index Content
+				`,
 				"test1.md": `
 					---
 					{
@@ -48,27 +59,45 @@ func TestFromFile(t *testing.T) {
 					---
 					# Test Content 2
 				`,
+				"foo/test3.txt": "hello!",
 			},
-			wantContent: []content.Content{
-				{
-					RelativePath: "test1.md",
-					Metadata: content.Metadata{
-						Title:       "Test Title 1",
-						Description: "Test Description 1",
-						CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-						UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+			wantContent: &content.Contents{
+				MarkdownContents: []content.MarkdownContent{
+					{
+						RelativeOutputPath: "index.html",
+						Metadata: content.Metadata{
+							Title:       "Index",
+							Description: "The Index",
+							CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+							UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+						},
+						HTML: "<h1>Index Content</h1>\n",
 					},
-					HTML: "<h1>Test Content 1</h1>\n",
+					{
+						RelativeOutputPath: "test1/index.html",
+						Metadata: content.Metadata{
+							Title:       "Test Title 1",
+							Description: "Test Description 1",
+							CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+							UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+						},
+						HTML: "<h1>Test Content 1</h1>\n",
+					},
+					{
+						RelativeOutputPath: "foo/test2/index.html",
+						Metadata: content.Metadata{
+							Title:       "Test Title 2",
+							Description: "Test Description 2",
+							CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
+							UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+						},
+						HTML: "<h1>Test Content 2</h1>\n",
+					},
 				},
-				{
-					RelativePath: "foo/test2.md",
-					Metadata: content.Metadata{
-						Title:       "Test Title 2",
-						Description: "Test Description 2",
-						CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
-						UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+				StaticContents: []content.StaticContent{
+					{
+						RelativeInputPath: "foo/test3.txt",
 					},
-					HTML: "<h1>Test Content 2</h1>\n",
 				},
 			},
 		},
@@ -76,72 +105,61 @@ func TestFromFile(t *testing.T) {
 			name: "loads files with missing updated-at",
 			files: map[string]string{
 				"test.md": `
-						---
-						{
-							"title": "Test Title",
-							"description": "Test Description",
-							"created-at": "2025-05-13T0:00:00Z"
-						}
-						---
-						# Test Content
-					`,
+					---
+					{
+						"title": "Test Title",
+						"description": "Test Description",
+						"created-at": "2025-05-13T0:00:00Z"
+					}
+					---
+					# Test Content
+				`,
 			},
-			wantContent: []content.Content{
-				{
-					RelativePath: "test.md",
-					Metadata: content.Metadata{
-						Title:       "Test Title",
-						Description: "Test Description",
-						CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+			wantContent: &content.Contents{
+				MarkdownContents: []content.MarkdownContent{
+					{
+						RelativeOutputPath: "test/index.html",
+						Metadata: content.Metadata{
+							Title:       "Test Title",
+							Description: "Test Description",
+							CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+						},
+						HTML: "<h1>Test Content</h1>\n",
 					},
-					HTML: "<h1>Test Content</h1>\n",
 				},
 			},
 		},
 		{
-			name: "ignores non-markdown files",
+			name: "returns error if two files have conflicting output paths",
 			files: map[string]string{
-				"test1.txt": `
-						super cool content!
-					`,
 				"test.md": `
-						---
-						{
-							"title": "Test Title",
-							"description": "Test Description",
-							"created-at": "2025-05-15T0:00:00Z",
-							"updated-at": "2025-05-16T0:00:00Z"
-						}
-						---
-						# Test Content
-					`,
+					---
+					{
+						"title": "Test Title",
+						"description": "Test Description",
+						"created-at": "2025-05-13T0:00:00Z",
+						"updated-at": "2025-05-14T0:00:00Z"
+					}
+					---
+					# Test Content
+				`,
+				"test/index.html": "hello",
 			},
-			wantContent: []content.Content{
-				{
-					RelativePath: "test.md",
-					Metadata: content.Metadata{
-						Title:       "Test Title",
-						Description: "Test Description",
-						CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
-						UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
-					},
-					HTML: "<h1>Test Content</h1>\n",
-				},
-			},
+			wantError: true,
 		},
 		{
 			name: "returns error if missing title in front matter",
 			files: map[string]string{
 				"test.md": `
-						---
-						{
-							"description": "Test Description",
-							"created-at": "2025-05-15T0:00:00Z",
-							"updated-at": "2025-05-16T0:00:00Z"
-						}
-						---
-						# Test Content
-					`,
+					---
+					{
+						"description": "Test Description",
+						"created-at": "2025-05-15T0:00:00Z",
+						"updated-at": "2025-05-16T0:00:00Z"
+					}
+					---
+					# Test Content
+				`,
 			},
 			wantError: true,
 		},
@@ -149,15 +167,15 @@ func TestFromFile(t *testing.T) {
 			name: "returns error if missing description in front matter",
 			files: map[string]string{
 				"test.md": `
-						---
-						{
-							"title": "Test Title",
-							"created-at": "2025-05-15T0:00:00Z",
-							"updated-at": "2025-05-16T0:00:00Z"
-						}
-						---
-						# Test Content
-					`,
+					---
+					{
+						"title": "Test Title",
+						"created-at": "2025-05-15T0:00:00Z",
+						"updated-at": "2025-05-16T0:00:00Z"
+					}
+					---
+					# Test Content
+				`,
 			},
 			wantError: true,
 		},
@@ -165,15 +183,15 @@ func TestFromFile(t *testing.T) {
 			name: "returns error if missing created-at in front matter",
 			files: map[string]string{
 				"test.md": `
-						---
-						{
-							"title": "Test Title",
-							"description": "Test Description",
-							"updated-at": "2025-05-16T0:00:00Z"
-						}
-						---
-						# Test Content
-					`,
+					---
+					{
+						"title": "Test Title",
+						"description": "Test Description",
+						"updated-at": "2025-05-16T0:00:00Z"
+					}
+					---
+					# Test Content
+				`,
 			},
 			wantError: true,
 		},
@@ -181,12 +199,12 @@ func TestFromFile(t *testing.T) {
 			name: "returns error if front matter is not valid JSON",
 			files: map[string]string{
 				"test.md": `
-						---
-						{
-							"title": "Test Title",
-						---
-						# Test Content
-					`,
+					---
+					{
+						"title": "Test Title",
+					---
+					# Test Content
+				`,
 			},
 			wantError: true,
 		},
@@ -194,10 +212,10 @@ func TestFromFile(t *testing.T) {
 			name: "returns error if empty front matter",
 			files: map[string]string{
 				"test.md": `
-						---
-						---
-						# Test Content
-					`,
+					---
+					---
+					# Test Content
+				`,
 			},
 			wantError: true,
 		},
@@ -205,8 +223,8 @@ func TestFromFile(t *testing.T) {
 			name: "returns error if no front matter",
 			files: map[string]string{
 				"test.md": `
-						# Test Content
-					`,
+					# Test Content
+				`,
 			},
 			wantError: true,
 		},
@@ -241,8 +259,10 @@ func TestFromFile(t *testing.T) {
 				}
 				return
 			}
-			sortByRelativePath(contents)
-			sortByRelativePath(test.wantContent)
+			sortMarkdownContent(contents.MarkdownContents)
+			sortMarkdownContent(test.wantContent.MarkdownContents)
+			sortStaticContent(contents.StaticContents)
+			sortStaticContent(test.wantContent.StaticContents)
 			if !reflect.DeepEqual(contents, test.wantContent) {
 				t.Fatalf("expected %v, got %v", test.wantContent, contents)
 			}
@@ -250,9 +270,15 @@ func TestFromFile(t *testing.T) {
 	}
 }
 
-func sortByRelativePath(contents []content.Content) {
+func sortMarkdownContent(contents []content.MarkdownContent) {
 	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].RelativePath < contents[j].RelativePath
+		return contents[i].RelativeOutputPath < contents[j].RelativeOutputPath
+	})
+}
+
+func sortStaticContent(contents []content.StaticContent) {
+	sort.Slice(contents, func(i, j int) bool {
+		return contents[i].RelativeInputPath < contents[j].RelativeInputPath
 	})
 }
 

@@ -15,6 +15,21 @@ import (
 	"github.com/yuin/goldmark/parser"
 )
 
+type Contents struct {
+	StaticContents   []StaticContent
+	MarkdownContents []MarkdownContent
+}
+
+type StaticContent struct {
+	RelativeInputPath string
+}
+
+type MarkdownContent struct {
+	RelativeOutputPath string
+	Metadata           Metadata
+	HTML               string
+}
+
 type Metadata struct {
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
@@ -42,12 +57,6 @@ func (fm *Metadata) validate() error {
 	return nil
 }
 
-type Content struct {
-	RelativePath string
-	Metadata     Metadata
-	HTML         string
-}
-
 type Loader struct {
 	goldmark goldmark.Markdown
 }
@@ -62,43 +71,82 @@ func NewLoader() *Loader {
 	}
 }
 
-func (l *Loader) FromDir(dir string) ([]Content, error) {
-	contents := []Content{}
-	err := filepath.WalkDir(dir, func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+var ErrLoad error = fmt.Errorf("failed to load content")
+
+func (l *Loader) FromDir(dir string) (*Contents, error) {
+	contents := Contents{}
+	outputToInput := map[string]string{}
+
+	err := filepath.WalkDir(dir, func(inputPath string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
-			return nil
-		}
-		if filepath.Ext(path) != ".md" {
-			slog.Warn("Skipping non-markdown file", "path", path)
-			return nil
-		}
-		content, err := l.fromFile(dir, path)
-		if err != nil {
 			return err
 		}
-		contents = append(contents, *content)
-		return nil
+
+		slog.Info(
+			"Loading content",
+			"content", inputPath,
+		)
+
+		outputPath := toRelativeOutputPath(dir, inputPath)
+		if conflictingInputPath, ok := outputToInput[outputPath]; ok {
+			slog.Error(
+				"Cannot load content, duplicate output path",
+				"content", inputPath,
+				"conflict", conflictingInputPath,
+				"path", outputPath,
+			)
+			return ErrLoad
+		}
+		outputToInput[outputPath] = inputPath
+
+		if filepath.Ext(inputPath) == ".md" {
+			content, err := l.loadMarkdown(inputPath, outputPath)
+			if err != nil {
+				slog.Error(
+					"Failed to load markdown content",
+					"path", inputPath,
+					"error", err,
+				)
+				return ErrLoad
+			}
+			contents.MarkdownContents = append(
+				contents.MarkdownContents,
+				*content,
+			)
+		} else {
+			contents.StaticContents = append(
+				contents.StaticContents,
+				StaticContent{
+					RelativeInputPath: strings.TrimPrefix(
+						inputPath,
+						fmt.Sprintf("%s%s", dir, string(os.PathSeparator)),
+					),
+				},
+			)
+		}
+
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	return contents, nil
+
+	return &contents, nil
 }
 
-func (l *Loader) fromFile(baseDir string, path string) (*Content, error) {
-	content, err := os.ReadFile(path)
+func (l *Loader) loadMarkdown(inputPath string, outputPath string) (*MarkdownContent, error) {
+	content, err := os.ReadFile(inputPath)
 	if err != nil {
 		return nil, err
 	}
+
 	ctx := parser.NewContext()
 	buf := &bytes.Buffer{}
 	err = l.goldmark.Convert(content, buf, parser.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
+
 	fm, err := frontmatter.Get(ctx)
 	if err != nil {
 		return nil, err
@@ -110,10 +158,33 @@ func (l *Loader) fromFile(baseDir string, path string) (*Content, error) {
 	if err := metadata.validate(); err != nil {
 		return nil, err
 	}
-	relativePath := strings.TrimPrefix(path, fmt.Sprintf("%s%s", baseDir, string(os.PathSeparator)))
-	return &Content{
-		RelativePath: relativePath,
-		Metadata:     metadata,
-		HTML:         buf.String(),
+
+	return &MarkdownContent{
+		RelativeOutputPath: outputPath,
+		Metadata:           metadata,
+		HTML:               buf.String(),
 	}, nil
+}
+
+func toRelativeOutputPath(dir string, path string) string {
+	relativePath := strings.TrimPrefix(
+		path,
+		fmt.Sprintf("%s%s", dir, string(os.PathSeparator)),
+	)
+
+	if !strings.HasSuffix(relativePath, ".md") {
+		return relativePath
+	}
+
+	var template string
+	if filepath.Base(relativePath) == "index.md" {
+		template = "%s.html"
+	} else {
+		template = "%s/index.html"
+	}
+
+	return fmt.Sprintf(
+		template,
+		strings.TrimSuffix(relativePath, ".md"),
+	)
 }

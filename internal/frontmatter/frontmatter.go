@@ -27,7 +27,6 @@ func Get(ctx parser.Context) (*FrontMatter, error) {
 }
 
 func (fm *FrontMatter) Decode(target any) error {
-	fmt.Println("raw front matter:", string(fm.raw))
 	return json.Unmarshal(fm.raw, target)
 }
 
