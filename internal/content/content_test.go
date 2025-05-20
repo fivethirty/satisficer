@@ -20,7 +20,7 @@ func TestFromFile(t *testing.T) {
 	tests := []struct {
 		name        string
 		files       map[string]string
-		wantContent *content.Contents
+		wantContent func(dir string) content.Contents
 		wantError   bool
 	}{
 		{
@@ -61,44 +61,47 @@ func TestFromFile(t *testing.T) {
 				`,
 				"foo/test3.txt": "hello!",
 			},
-			wantContent: &content.Contents{
-				MarkdownContents: []content.MarkdownContent{
-					{
-						RelativeOutputPath: "index.html",
-						Metadata: content.Metadata{
-							Title:       "Index",
-							Description: "The Index",
-							CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-							UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+			wantContent: func(dir string) content.Contents {
+				return content.Contents{
+					MarkdownContents: []content.MarkdownContent{
+						{
+							DestinationPath: "index.html",
+							Metadata: content.Metadata{
+								Title:       "Index",
+								Description: "The Index",
+								CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+								UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+							},
+							HTML: "<h1>Index Content</h1>\n",
 						},
-						HTML: "<h1>Index Content</h1>\n",
-					},
-					{
-						RelativeOutputPath: "test1/index.html",
-						Metadata: content.Metadata{
-							Title:       "Test Title 1",
-							Description: "Test Description 1",
-							CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-							UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+						{
+							DestinationPath: "test1/index.html",
+							Metadata: content.Metadata{
+								Title:       "Test Title 1",
+								Description: "Test Description 1",
+								CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+								UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+							},
+							HTML: "<h1>Test Content 1</h1>\n",
 						},
-						HTML: "<h1>Test Content 1</h1>\n",
-					},
-					{
-						RelativeOutputPath: "foo/test2/index.html",
-						Metadata: content.Metadata{
-							Title:       "Test Title 2",
-							Description: "Test Description 2",
-							CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
-							UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+						{
+							DestinationPath: "foo/test2/index.html",
+							Metadata: content.Metadata{
+								Title:       "Test Title 2",
+								Description: "Test Description 2",
+								CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
+								UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+							},
+							HTML: "<h1>Test Content 2</h1>\n",
 						},
-						HTML: "<h1>Test Content 2</h1>\n",
 					},
-				},
-				StaticContents: []content.StaticContent{
-					{
-						RelativeInputPath: "foo/test3.txt",
+					StaticContents: []content.StaticContent{
+						{
+							SourcePath:      filepath.Join(dir, "foo", "test3.txt"),
+							DestinationPath: filepath.Join(dir, "foo", "test3.txt"),
+						},
 					},
-				},
+				}
 			},
 		},
 		{
@@ -115,18 +118,20 @@ func TestFromFile(t *testing.T) {
 					# Test Content
 				`,
 			},
-			wantContent: &content.Contents{
-				MarkdownContents: []content.MarkdownContent{
-					{
-						RelativeOutputPath: "test/index.html",
-						Metadata: content.Metadata{
-							Title:       "Test Title",
-							Description: "Test Description",
-							CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+			wantContent: func(dir string) content.Contents {
+				return content.Contents{
+					MarkdownContents: []content.MarkdownContent{
+						{
+							DestinationPath: "test/index.html",
+							Metadata: content.Metadata{
+								Title:       "Test Title",
+								Description: "Test Description",
+								CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+							},
+							HTML: "<h1>Test Content</h1>\n",
 						},
-						HTML: "<h1>Test Content</h1>\n",
 					},
-				},
+				}
 			},
 		},
 		{
@@ -251,20 +256,21 @@ func TestFromFile(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			loader := content.NewLoader()
-			contents, err := loader.FromDir(path)
+			loader := content.NewLoader(path, "/test/output")
+			actual, err := loader.Load()
 			if err != nil {
 				if !test.wantError {
 					t.Fatalf("unexpected error: %v", err)
 				}
 				return
 			}
-			sortMarkdownContent(contents.MarkdownContents)
-			sortMarkdownContent(test.wantContent.MarkdownContents)
-			sortStaticContent(contents.StaticContents)
-			sortStaticContent(test.wantContent.StaticContents)
-			if !reflect.DeepEqual(contents, test.wantContent) {
-				t.Fatalf("expected %v, got %v", test.wantContent, contents)
+			expected := test.wantContent(path)
+			sortMarkdownContent(actual.MarkdownContents)
+			sortMarkdownContent(expected.MarkdownContents)
+			sortStaticContent(actual.StaticContents)
+			sortStaticContent(expected.StaticContents)
+			if !reflect.DeepEqual(&expected, actual) {
+				t.Fatalf("expected %v, got %v", expected, actual)
 			}
 		})
 	}
@@ -272,13 +278,13 @@ func TestFromFile(t *testing.T) {
 
 func sortMarkdownContent(contents []content.MarkdownContent) {
 	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].RelativeOutputPath < contents[j].RelativeOutputPath
+		return contents[i].DestinationPath < contents[j].DestinationPath
 	})
 }
 
 func sortStaticContent(contents []content.StaticContent) {
 	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].RelativeInputPath < contents[j].RelativeInputPath
+		return contents[i].DestinationPath < contents[j].DestinationPath
 	})
 }
 
