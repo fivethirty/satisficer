@@ -30,9 +30,9 @@ func TestFromFile(t *testing.T) {
 					---
 					{
 						"title": "Index",
-						"description": "The Index",
 						"created-at": "2025-05-13T0:00:00Z",
-						"updated-at": "2025-05-14T0:00:00Z"
+						"updated-at": "2025-05-14T0:00:00Z",
+						"template": "foo.html.tmpl"
 					}
 					---
 					# Index Content
@@ -41,9 +41,7 @@ func TestFromFile(t *testing.T) {
 					---
 					{
 						"title": "Test Title 1",
-						"description": "Test Description 1",
-						"created-at": "2025-05-13T0:00:00Z",
-						"updated-at": "2025-05-14T0:00:00Z"
+						"created-at": "2025-05-13T0:00:00Z"
 					}
 					---
 					# Test Content 1
@@ -52,7 +50,6 @@ func TestFromFile(t *testing.T) {
 					---
 					{
 						"title": "Test Title 2",
-						"description": "Test Description 2",
 						"created-at": "2025-05-15T0:00:00Z",
 						"updated-at": "2025-05-16T0:00:00Z"
 					}
@@ -61,74 +58,41 @@ func TestFromFile(t *testing.T) {
 				`,
 				"foo/test3.txt": "hello!",
 			},
-			wantContent: func(dir string) content.Contents {
+			wantContent: func(inputDir string) content.Contents {
 				return content.Contents{
 					MarkdownContents: []content.MarkdownContent{
 						{
-							DestinationPath: "index.html",
+							RelativeURL: "index.html",
 							Metadata: content.Metadata{
-								Title:       "Index",
-								Description: "The Index",
-								CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-								UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+								Title:     "Index",
+								CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+								UpdatedAt: timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+								Template:  "foo.html.tmpl",
 							},
 							HTML: "<h1>Index Content</h1>\n",
 						},
 						{
-							DestinationPath: "test1/index.html",
+							RelativeURL: "test1/index.html",
 							Metadata: content.Metadata{
-								Title:       "Test Title 1",
-								Description: "Test Description 1",
-								CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-								UpdatedAt:   timePtr(time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+								Title:     "Test Title 1",
+								CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
 							},
 							HTML: "<h1>Test Content 1</h1>\n",
 						},
 						{
-							DestinationPath: "foo/test2/index.html",
+							RelativeURL: "foo/test2/index.html",
 							Metadata: content.Metadata{
-								Title:       "Test Title 2",
-								Description: "Test Description 2",
-								CreatedAt:   time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
-								UpdatedAt:   timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
+								Title:     "Test Title 2",
+								CreatedAt: time.Date(2025, 5, 15, 0, 0, 0, 0, time.UTC),
+								UpdatedAt: timePtr(time.Date(2025, 5, 16, 0, 0, 0, 0, time.UTC)),
 							},
 							HTML: "<h1>Test Content 2</h1>\n",
 						},
 					},
 					StaticContents: []content.StaticContent{
 						{
-							SourcePath:      filepath.Join(dir, "foo", "test3.txt"),
-							DestinationPath: filepath.Join(dir, "foo", "test3.txt"),
-						},
-					},
-				}
-			},
-		},
-		{
-			name: "loads files with missing updated-at",
-			files: map[string]string{
-				"test.md": `
-					---
-					{
-						"title": "Test Title",
-						"description": "Test Description",
-						"created-at": "2025-05-13T0:00:00Z"
-					}
-					---
-					# Test Content
-				`,
-			},
-			wantContent: func(dir string) content.Contents {
-				return content.Contents{
-					MarkdownContents: []content.MarkdownContent{
-						{
-							DestinationPath: "test/index.html",
-							Metadata: content.Metadata{
-								Title:       "Test Title",
-								Description: "Test Description",
-								CreatedAt:   time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-							},
-							HTML: "<h1>Test Content</h1>\n",
+							RelativeURL: "foo/test3.txt",
+							FilePath:    filepath.Join(inputDir, "foo/test3.txt"),
 						},
 					},
 				}
@@ -141,7 +105,6 @@ func TestFromFile(t *testing.T) {
 					---
 					{
 						"title": "Test Title",
-						"description": "Test Description",
 						"created-at": "2025-05-13T0:00:00Z",
 						"updated-at": "2025-05-14T0:00:00Z"
 					}
@@ -158,23 +121,6 @@ func TestFromFile(t *testing.T) {
 				"test.md": `
 					---
 					{
-						"description": "Test Description",
-						"created-at": "2025-05-15T0:00:00Z",
-						"updated-at": "2025-05-16T0:00:00Z"
-					}
-					---
-					# Test Content
-				`,
-			},
-			wantError: true,
-		},
-		{
-			name: "returns error if missing description in front matter",
-			files: map[string]string{
-				"test.md": `
-					---
-					{
-						"title": "Test Title",
 						"created-at": "2025-05-15T0:00:00Z",
 						"updated-at": "2025-05-16T0:00:00Z"
 					}
@@ -256,7 +202,7 @@ func TestFromFile(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			loader := content.NewLoader(path, "/test/output")
+			loader := content.NewLoader(path)
 			actual, err := loader.Load()
 			if err != nil {
 				if !test.wantError {
@@ -278,13 +224,13 @@ func TestFromFile(t *testing.T) {
 
 func sortMarkdownContent(contents []content.MarkdownContent) {
 	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].DestinationPath < contents[j].DestinationPath
+		return contents[i].RelativeURL < contents[j].RelativeURL
 	})
 }
 
 func sortStaticContent(contents []content.StaticContent) {
 	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].DestinationPath < contents[j].DestinationPath
+		return contents[i].RelativeURL < contents[j].RelativeURL
 	})
 }
 

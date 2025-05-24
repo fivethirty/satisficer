@@ -21,30 +21,27 @@ type Contents struct {
 }
 
 type StaticContent struct {
-	DestinationPath string
-	SourcePath      string
+	RelativeURL string
+	FilePath    string
 }
 
 type MarkdownContent struct {
-	DestinationPath string
-	Metadata        Metadata
-	HTML            string
+	RelativeURL string
+	Metadata    Metadata
+	HTML        string
 }
 
 type Metadata struct {
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	CreatedAt   time.Time  `json:"created-at"`
-	UpdatedAt   *time.Time `json:"updated-at"`
+	Title     string     `json:"title"`
+	CreatedAt time.Time  `json:"created-at"`
+	UpdatedAt *time.Time `json:"updated-at"`
+	Template  string     `json:"template"`
 }
 
 func (fm *Metadata) validate() error {
 	missingFields := []string{}
 	if fm.Title == "" {
 		missingFields = append(missingFields, "title")
-	}
-	if fm.Description == "" {
-		missingFields = append(missingFields, "description")
 	}
 	if fm.CreatedAt.IsZero() {
 		missingFields = append(missingFields, "created-at")
@@ -59,20 +56,18 @@ func (fm *Metadata) validate() error {
 }
 
 type Loader struct {
-	goldmark  goldmark.Markdown
-	inputDir  string
-	outputDir string
+	goldmark goldmark.Markdown
+	inputDir string
 }
 
-func NewLoader(inputDir string, outputDir string) *Loader {
+func NewLoader(inputDir string) *Loader {
 	return &Loader{
 		goldmark: goldmark.New(
 			goldmark.WithExtensions(
 				&frontmatter.Extender{},
 			),
 		),
-		inputDir:  inputDir,
-		outputDir: outputDir,
+		inputDir: inputDir,
 	}
 }
 
@@ -80,36 +75,36 @@ var ErrLoad error = fmt.Errorf("failed to load content")
 
 func (l *Loader) Load() (*Contents, error) {
 	contents := Contents{}
-	outputToInput := map[string]string{}
+	urlToFile := map[string]string{}
 
-	err := filepath.WalkDir(l.inputDir, func(inputPath string, info fs.DirEntry, err error) error {
+	err := filepath.WalkDir(l.inputDir, func(filePath string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			return err
 		}
 
 		slog.Info(
-			"Loading content",
-			"content", inputPath,
+			"Loading file",
+			"file", filePath,
 		)
 
-		outputPath := l.toOutputPath(inputPath)
-		if conflictingInputPath, ok := outputToInput[outputPath]; ok {
+		relativeURL := l.relativeURL(filePath)
+		if conflictingInputPath, ok := urlToFile[relativeURL]; ok {
 			slog.Error(
-				"Cannot load content, duplicate output path",
-				"content", inputPath,
-				"conflict", conflictingInputPath,
-				"path", outputPath,
+				"Cannot load content, duplicate relative URL",
+				"file", filePath,
+				"conflitingFile", conflictingInputPath,
+				"relativeURL", relativeURL,
 			)
 			return ErrLoad
 		}
-		outputToInput[outputPath] = inputPath
+		urlToFile[relativeURL] = filePath
 
-		if filepath.Ext(inputPath) == ".md" {
-			content, err := l.loadMarkdown(inputPath, outputPath)
+		if filepath.Ext(filePath) == ".md" {
+			content, err := l.loadMarkdown(filePath, relativeURL)
 			if err != nil {
 				slog.Error(
 					"Failed to load markdown content",
-					"path", inputPath,
+					"path", filePath,
 					"error", err,
 				)
 				return ErrLoad
@@ -122,8 +117,8 @@ func (l *Loader) Load() (*Contents, error) {
 			contents.StaticContents = append(
 				contents.StaticContents,
 				StaticContent{
-					SourcePath:      inputPath,
-					DestinationPath: outputPath,
+					RelativeURL: relativeURL,
+					FilePath:    filePath,
 				},
 			)
 		}
@@ -137,8 +132,8 @@ func (l *Loader) Load() (*Contents, error) {
 	return &contents, nil
 }
 
-func (l *Loader) loadMarkdown(inputPath string, outputPath string) (*MarkdownContent, error) {
-	content, err := os.ReadFile(inputPath)
+func (l *Loader) loadMarkdown(filePath string, relativeURL string) (*MarkdownContent, error) {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -163,26 +158,24 @@ func (l *Loader) loadMarkdown(inputPath string, outputPath string) (*MarkdownCon
 	}
 
 	return &MarkdownContent{
-		DestinationPath: outputPath,
-		Metadata:        metadata,
-		HTML:            buf.String(),
+		RelativeURL: relativeURL,
+		Metadata:    metadata,
+		HTML:        buf.String(),
 	}, nil
 }
 
-func (l *Loader) toOutputPath(path string) string {
+func (l *Loader) relativeURL(path string) string {
 	relativePath := strings.TrimPrefix(
 		path,
 		fmt.Sprintf("%s%s", l.inputDir, string(os.PathSeparator)),
 	)
 
-	directCopyPath := filepath.Join(l.outputDir, relativePath)
-
-	if !strings.HasSuffix(directCopyPath, ".md") {
-		return directCopyPath
+	if !strings.HasSuffix(relativePath, ".md") {
+		return relativePath
 	}
 
 	var template string
-	if filepath.Base(directCopyPath) == "index.md" {
+	if filepath.Base(relativePath) == "index.md" {
 		template = "%s.html"
 	} else {
 		template = "%s/index.html"
@@ -190,6 +183,6 @@ func (l *Loader) toOutputPath(path string) string {
 
 	return fmt.Sprintf(
 		template,
-		strings.TrimSuffix(directCopyPath, ".md"),
+		strings.TrimSuffix(relativePath, ".md"),
 	)
 }
