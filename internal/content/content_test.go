@@ -244,5 +244,3 @@ func trimLines(s string) string {
 }
 
 func timePtr(t time.Time) *time.Time {
-	return &t
-}
