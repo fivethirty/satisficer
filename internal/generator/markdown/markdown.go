@@ -54,15 +54,15 @@ func Parse(reader io.Reader) (*Content, error) {
 
 	fm := frontMatter{}
 	if err := json.Unmarshal(pf.frontMatter, &fm); err != nil {
-		return nil, fmt.Errorf("error unmarshalling front matter: %w", err)
+		return nil, err
 	}
 	if err := fm.validate(); err != nil {
-		return nil, fmt.Errorf("error validating front matter: %w", err)
+		return nil, err
 	}
 
 	buf := &bytes.Buffer{}
 	if err := markdown.Convert(pf.content, buf); err != nil {
-		return nil, fmt.Errorf("error converting markdown: %w", err)
+		return nil, err
 	}
 
 	template := fm.Template
@@ -92,7 +92,7 @@ func readPageFile(reader io.Reader) (*pageFile, error) {
 	firstLine := scanner.Bytes()
 	inFrontMatter := bytes.Equal(firstLine, frontMatterDelimiter)
 	if !inFrontMatter {
-		return nil, fmt.Errorf("error parsing front matter")
+		return nil, fmt.Errorf("could not find front matter")
 	}
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -108,7 +108,7 @@ func readPageFile(reader io.Reader) (*pageFile, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
+		return nil, err
 	}
 	return &pageFile{
 		frontMatter: frontMatter,

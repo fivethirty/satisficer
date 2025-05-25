@@ -127,7 +127,7 @@ func TestNew(t *testing.T) {
 
 			staticNames := []string{}
 			if l.Static != nil {
-				err = fs.WalkDir(*l.Static, ".", func(path string, d fs.DirEntry, err error) error {
+				err = fs.WalkDir(l.Static, ".", func(path string, d fs.DirEntry, err error) error {
 					if err != nil {
 						return err
 					}

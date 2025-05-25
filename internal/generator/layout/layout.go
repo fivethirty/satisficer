@@ -11,35 +11,33 @@ import (
 )
 
 type Layout struct {
-	Static   *fs.FS
+	Static   fs.FS
 	Template *template.Template
 }
-
-var errNewTemplates = fmt.Errorf("error reading template files")
 
 const staticDir = "static"
 
 func New(fsys fs.FS) (*Layout, error) {
 	info, err := fs.Stat(fsys, staticDir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("error checking static directory: %w", err)
+		return nil, err
 	}
 	if err == nil && !info.IsDir() {
 		return nil, fmt.Errorf("static directory %s is not a directory", staticDir)
 	}
 
-	var static *fs.FS
+	var static fs.FS
 	if err == nil {
 		sub, err := fs.Sub(fsys, staticDir)
 		if err != nil {
-			return nil, fmt.Errorf("error creating static subdirectory fs: %w", err)
+			return nil, err
 		}
-		static = &sub
+		static = sub
 	}
 
 	tmpl, err := templates(fsys)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load templates: %w", err)
 	}
 
 	return &Layout{
@@ -51,33 +49,34 @@ func New(fsys fs.FS) (*Layout, error) {
 func templates(fsys fs.FS) (*template.Template, error) {
 	tmpl := template.New("")
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if d.IsDir() {
 			if path == staticDir {
 				return fs.SkipDir
 			}
-			return err
+			return nil
 		}
 		if !strings.HasSuffix(path, ".html.tmpl") {
-			return err
+			return nil
 		}
 
 		slog.Info("Loading template file", "path", path)
 
 		file, err := fsys.Open(path)
 		if err != nil {
-			slog.Error("Error opening template file", "path", path, "err", err)
-			return errNewTemplates
+			return err
 		}
 		bytes := []byte{}
 		_, err = file.Read(bytes)
 		if err != nil {
-			slog.Error("Error reading template file", "path", path, "err", err)
-			return errNewTemplates
+			return err
 		}
 		_, err = tmpl.New(path).Parse(string(bytes))
 		if err != nil {
-			slog.Error("Error parsing template file", "path", path, "err", err)
-			return errNewTemplates
+			return err
 		}
 		return nil
 	})
