@@ -133,10 +133,13 @@ func TestNew(t *testing.T) {
 			}
 			p, err := content.New(strings.NewReader(markdown))
 			if err != nil {
-				if test.wantError {
-					return
+				if !test.wantError {
+					t.Fatalf("unexpected error: %v", err)
 				}
-				t.Fatalf("unexpected error: %v", err)
+				return
+			}
+			if test.wantError {
+				t.Fatalf("expected error, got nil")
 			}
 			if !reflect.DeepEqual(p, test.wantPage) {
 				t.Fatalf("got page: %v, want page: %v", p, test.wantPage)
