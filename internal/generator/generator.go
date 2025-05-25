@@ -1,7 +1,15 @@
 package generator
 
-type Generator struct{}
+import (
+	"io/fs"
+)
 
-func New() *Generator {
+type Generator struct {
+}
+
+func New(
+	layoutFS fs.FS,
+	contentFS fs.FS,
+) *Generator {
 	return &Generator{}
 }

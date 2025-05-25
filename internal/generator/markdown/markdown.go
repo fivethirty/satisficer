@@ -1,4 +1,4 @@
-package content
+package markdown
 
 import (
 	"bufio"
@@ -46,7 +46,7 @@ func (fm *frontMatter) validate() error {
 
 var markdown = goldmark.New()
 
-func New(reader io.Reader) (*Content, error) {
+func Parse(reader io.Reader) (*Content, error) {
 	pf, err := readPageFile(reader)
 	if err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-package content_test
+package markdown_test
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/content"
+	"github.com/fivethirty/satisficer/internal/generator/markdown"
 )
 
 func TestNew(t *testing.T) {
@@ -17,7 +17,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name      string
 		markdown  func() (string, error)
-		wantPage  *content.Content
+		wantPage  *markdown.Content
 		wantError bool
 	}{
 		{
@@ -32,7 +32,7 @@ func TestNew(t *testing.T) {
 					"# Test Content",
 				)
 			},
-			wantPage: &content.Content{
+			wantPage: &markdown.Content{
 				Title:     "Test Title",
 				CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
 				UpdatedAt: nil,
@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 					"# Test Content",
 				)
 			},
-			wantPage: &content.Content{
+			wantPage: &markdown.Content{
 				Title:            "Test Title",
 				CreatedAt:        time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
 				UpdatedAt:        timePtr(t, time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
@@ -127,11 +127,11 @@ func TestNew(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			markdown, err := test.markdown()
+			md, err := test.markdown()
 			if err != nil {
 				t.Fatalf("unexpected error getting frontmatter: %v", err)
 			}
-			p, err := content.New(strings.NewReader(markdown))
+			p, err := markdown.Parse(strings.NewReader(md))
 			if err != nil {
 				if !test.wantError {
 					t.Fatalf("unexpected error: %v", err)
