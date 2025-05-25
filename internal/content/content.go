@@ -1,44 +1,33 @@
 package content
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"io/fs"
-	"log/slog"
-	"os"
-	"path/filepath"
+	"io"
 	"strings"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/frontmatter"
 	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/parser"
 )
 
-type Contents struct {
-	StaticContents   []StaticContent
-	MarkdownContents []MarkdownContent
+type Content struct {
+	Title            string
+	CreatedAt        time.Time
+	UpdatedAt        *time.Time
+	TemplateOverride string
+	HTML             string
 }
 
-type StaticContent struct {
-	RelativeURL string
-	FilePath    string
-}
-
-type MarkdownContent struct {
-	RelativeURL string
-	Metadata    Metadata
-	HTML        string
-}
-
-type Metadata struct {
+type frontMatter struct {
 	Title     string     `json:"title"`
 	CreatedAt time.Time  `json:"created-at"`
 	UpdatedAt *time.Time `json:"updated-at"`
 	Template  string     `json:"template"`
 }
 
-func (fm *Metadata) validate() error {
+func (fm *frontMatter) validate() error {
 	missingFields := []string{}
 	if fm.Title == "" {
 		missingFields = append(missingFields, "title")
@@ -55,134 +44,80 @@ func (fm *Metadata) validate() error {
 	return nil
 }
 
-type Loader struct {
-	goldmark goldmark.Markdown
-	inputDir string
-}
+var markdown = goldmark.New()
 
-func NewLoader(inputDir string) *Loader {
-	return &Loader{
-		goldmark: goldmark.New(
-			goldmark.WithExtensions(
-				&frontmatter.Extender{},
-			),
-		),
-		inputDir: inputDir,
-	}
-}
-
-var ErrLoad error = fmt.Errorf("failed to load content")
-
-func (l *Loader) Load() (*Contents, error) {
-	contents := Contents{}
-	urlToFile := map[string]string{}
-
-	err := filepath.WalkDir(l.inputDir, func(filePath string, info fs.DirEntry, err error) error {
-		if info.IsDir() {
-			return err
-		}
-
-		slog.Info(
-			"Loading file",
-			"file", filePath,
-		)
-
-		relativeURL := l.relativeURL(filePath)
-		if conflictingInputPath, ok := urlToFile[relativeURL]; ok {
-			slog.Error(
-				"Cannot load content, duplicate relative URL",
-				"file", filePath,
-				"conflitingFile", conflictingInputPath,
-				"relativeURL", relativeURL,
-			)
-			return ErrLoad
-		}
-		urlToFile[relativeURL] = filePath
-
-		if filepath.Ext(filePath) == ".md" {
-			content, err := l.loadMarkdown(filePath, relativeURL)
-			if err != nil {
-				slog.Error(
-					"Failed to load markdown content",
-					"path", filePath,
-					"error", err,
-				)
-				return ErrLoad
-			}
-			contents.MarkdownContents = append(
-				contents.MarkdownContents,
-				*content,
-			)
-		} else {
-			contents.StaticContents = append(
-				contents.StaticContents,
-				StaticContent{
-					RelativeURL: relativeURL,
-					FilePath:    filePath,
-				},
-			)
-		}
-
-		return err
-	})
+func New(reader io.Reader) (*Content, error) {
+	pf, err := readPageFile(reader)
 	if err != nil {
 		return nil, err
 	}
 
-	return &contents, nil
-}
-
-func (l *Loader) loadMarkdown(filePath string, relativeURL string) (*MarkdownContent, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
+	fm := frontMatter{}
+	if err := json.Unmarshal(pf.frontMatter, &fm); err != nil {
+		return nil, fmt.Errorf("error unmarshalling front matter: %w", err)
+	}
+	if err := fm.validate(); err != nil {
+		return nil, fmt.Errorf("error validating front matter: %w", err)
 	}
 
-	ctx := parser.NewContext()
 	buf := &bytes.Buffer{}
-	err = l.goldmark.Convert(content, buf, parser.WithContext(ctx))
-	if err != nil {
-		return nil, err
+	if err := markdown.Convert(pf.content, buf); err != nil {
+		return nil, fmt.Errorf("error converting markdown: %w", err)
 	}
 
-	fm, err := frontmatter.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	metadata := Metadata{}
-	if err := fm.Decode(&metadata); err != nil {
-		return nil, err
-	}
-	if err := metadata.validate(); err != nil {
-		return nil, err
-	}
+	template := fm.Template
 
-	return &MarkdownContent{
-		RelativeURL: relativeURL,
-		Metadata:    metadata,
-		HTML:        buf.String(),
+	return &Content{
+		Title:            fm.Title,
+		CreatedAt:        fm.CreatedAt,
+		UpdatedAt:        fm.UpdatedAt,
+		HTML:             buf.String(),
+		TemplateOverride: template,
 	}, nil
 }
 
-func (l *Loader) relativeURL(path string) string {
-	relativePath := strings.TrimPrefix(
-		path,
-		fmt.Sprintf("%s%s", l.inputDir, string(os.PathSeparator)),
-	)
+var frontMatterDelimiter = []byte{'-', '-', '-'}
 
-	if !strings.HasSuffix(relativePath, ".md") {
-		return relativePath
+type pageFile struct {
+	frontMatter []byte
+	content     []byte
+}
+
+func readPageFile(reader io.Reader) (*pageFile, error) {
+	frontMatter := []byte{}
+	content := []byte{}
+
+	scanner := bufio.NewScanner(reader)
+	scanner.Scan()
+	firstLine := scanner.Bytes()
+	inFrontMatter := bytes.Equal(firstLine, frontMatterDelimiter)
+	if !inFrontMatter {
+		return nil, fmt.Errorf("error parsing front matter")
 	}
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if inFrontMatter && bytes.Equal(line, frontMatterDelimiter) {
+			inFrontMatter = false
+			continue
+		}
 
-	var template string
-	if filepath.Base(relativePath) == "index.md" {
-		template = "%s.html"
-	} else {
-		template = "%s/index.html"
+		if inFrontMatter {
+			frontMatter = appendLine(frontMatter, string(line))
+		} else {
+			content = appendLine(content, string(line))
+		}
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading file: %w", err)
+	}
+	return &pageFile{
+		frontMatter: frontMatter,
+		content:     content,
+	}, nil
+}
 
-	return fmt.Sprintf(
-		template,
-		strings.TrimSuffix(relativePath, ".md"),
-	)
+func appendLine(b []byte, line string) []byte {
+	b = append(b, line...)
+	b = append(b, '\n')
+	return b
 }
