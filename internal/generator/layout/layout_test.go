@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/fivethirty/satisficer/internal/layout"
+	"github.com/fivethirty/satisficer/internal/generator/layout"
 )
 
 var testFile = &fstest.MapFile{

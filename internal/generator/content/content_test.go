@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/content"
+	"github.com/fivethirty/satisficer/internal/generator/content"
 )
 
 func TestNew(t *testing.T) {
