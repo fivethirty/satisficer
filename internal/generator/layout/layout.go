@@ -11,8 +11,8 @@ import (
 )
 
 type Layout struct {
-	Static   fs.FS
-	Template *template.Template
+	Static    fs.FS
+	Templates *template.Template
 }
 
 const staticDir = "static"
@@ -41,8 +41,8 @@ func New(fsys fs.FS) (*Layout, error) {
 	}
 
 	return &Layout{
-		Static:   static,
-		Template: tmpl,
+		Static:    static,
+		Templates: tmpl,
 	}, nil
 }
 
@@ -94,11 +94,11 @@ func (t *Layout) TemplateForContent(contentPath string) (*template.Template, err
 	}
 	dir := filepath.Dir(contentPath)
 	target := filepath.Join(dir, targetBase)
-	tmpl := t.Template.Lookup(target)
+	tmpl := t.Templates.Lookup(target)
 	for tmpl == nil && dir != "." {
 		dir = filepath.Dir(dir)
 		target = filepath.Join(dir, targetBase)
-		tmpl = t.Template.Lookup(target)
+		tmpl = t.Templates.Lookup(target)
 	}
 	if tmpl == nil {
 		return nil, fmt.Errorf("template for %s not found", contentPath)

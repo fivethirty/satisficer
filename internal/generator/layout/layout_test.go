@@ -111,7 +111,7 @@ func TestNew(t *testing.T) {
 			}
 
 			templateNames := []string{}
-			for _, tmpl := range l.Template.Templates() {
+			for _, tmpl := range l.Templates.Templates() {
 				templateNames = append(templateNames, tmpl.Name())
 			}
 
@@ -138,7 +138,7 @@ func TestNew(t *testing.T) {
 					return nil
 				})
 				if err != nil {
-					t.Fatalf("error walking static dir: %v", err)
+					t.Fatal(err)
 				}
 			}
 

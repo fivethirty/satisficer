@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/section"
+	"github.com/fivethirty/satisficer/internal/generator/content/internal/section"
 )
 
 func TestSectionManipulation(t *testing.T) {

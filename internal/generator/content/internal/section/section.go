@@ -11,7 +11,6 @@ type Page struct {
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt *time.Time
-	Content   string
 }
 
 type Section struct {

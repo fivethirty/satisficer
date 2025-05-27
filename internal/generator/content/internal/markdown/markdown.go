@@ -12,22 +12,19 @@ import (
 	"github.com/yuin/goldmark"
 )
 
-type Content struct {
-	Title            string
-	CreatedAt        time.Time
-	UpdatedAt        *time.Time
-	TemplateOverride string
-	HTML             string
+type ParsedFile struct {
+	FrontMatter FrontMatter
+	HTML        string
 }
 
-type frontMatter struct {
+type FrontMatter struct {
 	Title     string     `json:"title"`
 	CreatedAt time.Time  `json:"created-at"`
 	UpdatedAt *time.Time `json:"updated-at"`
 	Template  string     `json:"template"`
 }
 
-func (fm *frontMatter) validate() error {
+func (fm *FrontMatter) validate() error {
 	missingFields := []string{}
 	if fm.Title == "" {
 		missingFields = append(missingFields, "title")
@@ -46,17 +43,18 @@ func (fm *frontMatter) validate() error {
 
 var markdown = goldmark.New()
 
-func Parse(reader io.Reader) (*Content, error) {
+func Parse(reader io.Reader) (*ParsedFile, error) {
 	pf, err := readPageFile(reader)
 	if err != nil {
 		return nil, err
 	}
 
-	fm := frontMatter{}
-	if err := json.Unmarshal(pf.frontMatter, &fm); err != nil {
+	parsedFile := &ParsedFile{}
+
+	if err := json.Unmarshal(pf.frontMatter, &parsedFile.FrontMatter); err != nil {
 		return nil, err
 	}
-	if err := fm.validate(); err != nil {
+	if err := parsedFile.FrontMatter.validate(); err != nil {
 		return nil, err
 	}
 
@@ -64,26 +62,19 @@ func Parse(reader io.Reader) (*Content, error) {
 	if err := markdown.Convert(pf.content, buf); err != nil {
 		return nil, err
 	}
+	parsedFile.HTML = buf.String()
 
-	template := fm.Template
-
-	return &Content{
-		Title:            fm.Title,
-		CreatedAt:        fm.CreatedAt,
-		UpdatedAt:        fm.UpdatedAt,
-		HTML:             buf.String(),
-		TemplateOverride: template,
-	}, nil
+	return parsedFile, nil
 }
 
 var frontMatterDelimiter = []byte{'-', '-', '-'}
 
-type pageFile struct {
+type rawFile struct {
 	frontMatter []byte
 	content     []byte
 }
 
-func readPageFile(reader io.Reader) (*pageFile, error) {
+func readPageFile(reader io.Reader) (*rawFile, error) {
 	frontMatter := []byte{}
 	content := []byte{}
 
@@ -110,7 +101,7 @@ func readPageFile(reader io.Reader) (*pageFile, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	return &pageFile{
+	return &rawFile{
 		frontMatter: frontMatter,
 		content:     content,
 	}, nil

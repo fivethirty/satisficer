@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/markdown"
+	"github.com/fivethirty/satisficer/internal/generator/content/internal/markdown"
 )
 
 func TestNew(t *testing.T) {
@@ -17,7 +17,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name      string
 		markdown  func() (string, error)
-		wantPage  *markdown.Content
+		wantPage  *markdown.ParsedFile
 		wantError bool
 	}{
 		{
@@ -32,11 +32,13 @@ func TestNew(t *testing.T) {
 					"# Test Content",
 				)
 			},
-			wantPage: &markdown.Content{
-				Title:     "Test Title",
-				CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-				UpdatedAt: nil,
-				HTML:      "<h1>Test Content</h1>\n",
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: nil,
+				},
+				HTML: "<h1>Test Content</h1>\n",
 			},
 		},
 		{
@@ -53,12 +55,14 @@ func TestNew(t *testing.T) {
 					"# Test Content",
 				)
 			},
-			wantPage: &markdown.Content{
-				Title:            "Test Title",
-				CreatedAt:        time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
-				UpdatedAt:        timePtr(t, time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
-				HTML:             "<h1>Test Content</h1>\n",
-				TemplateOverride: "custom.html.tmpl",
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: timePtr(t, time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
+					Template:  "custom.html.tmpl",
+				},
+				HTML: "<h1>Test Content</h1>\n",
 			},
 		},
 		{
@@ -129,7 +133,7 @@ func TestNew(t *testing.T) {
 			t.Parallel()
 			md, err := test.markdown()
 			if err != nil {
-				t.Fatalf("unexpected error getting frontmatter: %v", err)
+				t.Fatal(err)
 			}
 			p, err := markdown.Parse(strings.NewReader(md))
 			if err != nil {
