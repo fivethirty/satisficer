@@ -43,7 +43,7 @@ func New(
 func (g *Generator) Generate() error {
 	slog.Info("Generating site...")
 	slog.Info("Reading layout files...")
-	l, err := layout.New(g.layoutFS)
+	l, err := layout.FromFS(g.layoutFS)
 	if err != nil {
 		return err
 	}

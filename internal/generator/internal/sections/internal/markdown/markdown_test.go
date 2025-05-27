@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/content/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/generator/internal/sections/internal/markdown"
 )
 
-func TestNew(t *testing.T) {
+func TestParse(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

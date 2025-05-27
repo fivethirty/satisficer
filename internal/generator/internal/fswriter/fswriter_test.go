@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/fivethirty/satisficer/internal/generator/fswriter"
+	"github.com/fivethirty/satisficer/internal/generator/internal/fswriter"
 )
 
 func TestCopyFilteredFS(t *testing.T) {

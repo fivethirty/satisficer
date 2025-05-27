@@ -7,14 +7,14 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/fivethirty/satisficer/internal/generator/layout"
+	"github.com/fivethirty/satisficer/internal/generator/internal/layout"
 )
 
 var testFile = &fstest.MapFile{
 	Data: []byte("a test file"),
 }
 
-func TestNew(t *testing.T) {
+func TestFromFS(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -99,7 +99,7 @@ func TestNew(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			l, err := layout.New(test.fs)
+			l, err := layout.FromFS(test.fs)
 			if err != nil {
 				if !test.wantError {
 					t.Fatalf("unexpected error: %v", err)
@@ -110,7 +110,7 @@ func TestNew(t *testing.T) {
 				t.Fatalf("expected error, got nil")
 			}
 
-			templateNames := []string{}
+			templateNames := make([]string, 0, len(test.wantTemplateNames))
 			for _, tmpl := range l.Templates.Templates() {
 				templateNames = append(templateNames, tmpl.Name())
 			}
@@ -125,7 +125,7 @@ func TestNew(t *testing.T) {
 				)
 			}
 
-			staticNames := []string{}
+			staticNames := make([]string, 0, len(test.wantStaticNames))
 			if l.Static != nil {
 				err = fs.WalkDir(l.Static, ".", func(path string, d fs.DirEntry, err error) error {
 					if err != nil {
@@ -230,7 +230,7 @@ func TestTemplateForContent(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			l, err := layout.New(test.fs)
+			l, err := layout.FromFS(test.fs)
 			if err != nil {
 				t.Fatalf("failed to create templates: %v", err)
 			}

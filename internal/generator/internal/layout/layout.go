@@ -17,7 +17,7 @@ type Layout struct {
 
 const staticDir = "static"
 
-func New(fsys fs.FS) (*Layout, error) {
+func FromFS(fsys fs.FS) (*Layout, error) {
 	info, err := fs.Stat(fsys, staticDir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err

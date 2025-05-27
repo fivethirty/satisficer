@@ -75,8 +75,8 @@ type rawFile struct {
 }
 
 func readPageFile(reader io.Reader) (*rawFile, error) {
-	frontMatter := []byte{}
-	content := []byte{}
+	frontMatter := make([]byte, 0, 1024)
+	content := make([]byte, 0, 1024)
 
 	scanner := bufio.NewScanner(reader)
 	scanner.Scan()
