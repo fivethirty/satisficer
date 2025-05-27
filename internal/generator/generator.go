@@ -58,7 +58,7 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	// don't need to do this if we have the source i think?
+	// xxx don't need to do this if we have the source i think?
 	slog.Info("Copying static content files...")
 	err = fswriter.CopyFilteredFS(
 		g.contentFS,

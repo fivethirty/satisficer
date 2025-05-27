@@ -21,8 +21,13 @@ type Page struct {
 	UpdatedAt *time.Time
 }
 
+type File struct {
+	URL string
+}
+
 type Section struct {
 	Pages []Page
+	Files []File
 }
 
 type ParseFunc func(io.Reader) (*markdown.ParsedFile, error)
@@ -38,7 +43,18 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 			return nil
 		}
 
+		dir := filepath.Dir(path)
+		if _, ok := sections[dir]; !ok {
+			sections[dir] = &Section{
+				Pages: make([]Page, 0, 10),
+				Files: make([]File, 0, 10),
+			}
+		}
+
 		if !strings.HasSuffix(path, ".md") {
+			sections[dir].Files = append(sections[dir].Files, File{
+				URL: path,
+			})
 			return nil
 		}
 
@@ -52,12 +68,6 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 			return err
 		}
 
-		dir := filepath.Dir(path)
-		if _, ok := sections[dir]; !ok {
-			sections[dir] = &Section{
-				Pages: make([]Page, 0, 10),
-			}
-		}
 		sections[dir].Pages = append(sections[dir].Pages, Page{
 			URL:       url(path),
 			Source:    path,

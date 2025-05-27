@@ -50,6 +50,7 @@ func TestFromFS(t *testing.T) {
 							Source: "blog/post2.md",
 						},
 					},
+					Files: []sections.File{},
 				},
 				".": {
 					Pages: []sections.Page{
@@ -62,6 +63,7 @@ func TestFromFS(t *testing.T) {
 							Source: "about.md",
 						},
 					},
+					Files: []sections.File{},
 				},
 			},
 		},
@@ -77,6 +79,11 @@ func TestFromFS(t *testing.T) {
 						{
 							URL:    "index.html",
 							Source: "index.md",
+						},
+					},
+					Files: []sections.File{
+						{
+							URL: "about.html",
 						},
 					},
 				},
@@ -101,6 +108,8 @@ func TestFromFS(t *testing.T) {
 				}
 				sortPages(actualSection.Pages)
 				sortPages(expectedSection.Pages)
+				sortFiles(actualSection.Files)
+				sortFiles(expectedSection.Files)
 				if !reflect.DeepEqual(actualSection, expectedSection) {
 					t.Fatalf(
 						"section %q mismatch: got %v, want %v",
@@ -117,6 +126,12 @@ func TestFromFS(t *testing.T) {
 func sortPages(pages []sections.Page) {
 	sort.Slice(pages, func(i, j int) bool {
 		return pages[i].URL < pages[j].URL
+	})
+}
+
+func sortFiles(files []sections.File) {
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].URL < files[j].URL
 	})
 }
 
