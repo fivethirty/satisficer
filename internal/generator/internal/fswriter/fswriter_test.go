@@ -50,8 +50,8 @@ func TestCopyFilteredFS(t *testing.T) {
 					Data: []byte("file2 content"),
 				},
 			},
-			filter: func(path string) (bool, error) {
-				return filepath.Ext(path) != ".md", nil
+			filter: func(path string) bool {
+				return filepath.Ext(path) != ".md"
 			},
 			expectedDestFS: fstest.MapFS{
 				"file2.txt": &fstest.MapFile{

@@ -9,8 +9,8 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
 	"github.com/fivethirty/satisficer/internal/generator/internal/sections"
-	"github.com/fivethirty/satisficer/internal/generator/internal/sections/internal/markdown"
 )
 
 func fakeParseFunc(_ io.Reader) (*markdown.ParsedFile, error) {
@@ -37,15 +37,30 @@ func TestFromFS(t *testing.T) {
 			expected: map[string]*sections.Section{
 				"blog": {
 					Pages: []sections.Page{
-						{URL: "blog/index.html"},
-						{URL: "blog/post1/index.html"},
-						{URL: "blog/post2/index.html"},
+						{
+							URL:    "blog/index.html",
+							Source: "blog/index.md",
+						},
+						{
+							URL:    "blog/post1/index.html",
+							Source: "blog/post1.md",
+						},
+						{
+							URL:    "blog/post2/index.html",
+							Source: "blog/post2.md",
+						},
 					},
 				},
 				".": {
 					Pages: []sections.Page{
-						{URL: "index.html"},
-						{URL: "about/index.html"},
+						{
+							URL:    "index.html",
+							Source: "index.md",
+						},
+						{
+							URL:    "about/index.html",
+							Source: "about.md",
+						},
 					},
 				},
 			},
@@ -59,7 +74,10 @@ func TestFromFS(t *testing.T) {
 			expected: map[string]*sections.Section{
 				".": {
 					Pages: []sections.Page{
-						{URL: "index.html"},
+						{
+							URL:    "index.html",
+							Source: "index.md",
+						},
 					},
 				},
 			},

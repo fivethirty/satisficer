@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/internal/sections/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
 )
 
 type Page struct {
 	URL       string
+	Source    string
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt *time.Time
@@ -59,6 +60,7 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 		}
 		sections[dir].Pages = append(sections[dir].Pages, Page{
 			URL:       url(path),
+			Source:    path,
 			Title:     parsed.FrontMatter.Title,
 			CreatedAt: parsed.FrontMatter.CreatedAt,
 			UpdatedAt: parsed.FrontMatter.UpdatedAt,

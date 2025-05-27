@@ -25,10 +25,10 @@ func Copy(src io.Reader, dest string) error {
 	return nil
 }
 
-type PathFilterFunc func(path string) (bool, error)
+type PathFilterFunc func(path string) bool
 
-func AllPathFilterFunc(path string) (bool, error) {
-	return true, nil
+func AllPathFilterFunc(path string) bool {
+	return true
 }
 
 func CopyFilteredFS(src fs.FS, dest string, filter PathFilterFunc) error {
@@ -39,11 +39,7 @@ func CopyFilteredFS(src fs.FS, dest string, filter PathFilterFunc) error {
 		if d.IsDir() {
 			return nil
 		}
-		ok, err := filter(path)
-		if err != nil {
-			return err
-		}
-		if !ok {
+		if !filter(path) {
 			return nil
 		}
 

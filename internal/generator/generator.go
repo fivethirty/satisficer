@@ -2,16 +2,15 @@ package generator
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/fivethirty/satisficer/internal/generator/layout"
-	"github.com/fivethirty/satisficer/internal/generator/markdown"
-	"github.com/fivethirty/satisficer/internal/generator/section"
+	"github.com/fivethirty/satisficer/internal/generator/internal/fswriter"
+	"github.com/fivethirty/satisficer/internal/generator/internal/layout"
+	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/generator/internal/sections"
 )
 
 type Generator struct {
@@ -41,151 +40,52 @@ func New(
 }
 
 func (g *Generator) Generate() error {
-	slog.Info("Generating site...")
-	slog.Info("Reading layout files...")
+	slog.Info("Loading layout files...")
 	l, err := layout.FromFS(g.layoutFS)
 	if err != nil {
 		return err
 	}
-	slog.Info("Writing static layout files...")
-	if err := g.copyFS(l.Static, "**/*"); err != nil {
-		return err
-	}
-	slog.Info("Writing static content files...")
-	if err := g.copyFS(g.contentFS, "**/!(*.md)"); err != nil {
-		return err
-	}
-	slog.Info("Reading markdown content...")
-	sections, err := g.sections()
+
+	slog.Info("Parsing content files...")
+	s, err := sections.FromFS(g.contentFS, markdown.Parse)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Sections:", sections)
-	slog.Info("Writing markdown content...")
-	return nil
-}
 
-func (g *Generator) copyFS(fsys fs.FS, glob string) error {
-	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		ok, err := filepath.Match(glob, path)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return nil
-		}
-		// xxx: log src -> dest here
-		return g.copyFile(fsys, path)
-	})
+	slog.Info("Copying static layout files...")
+	err = fswriter.CopyFilteredFS(l.Static, g.buildDir, fswriter.AllPathFilterFunc)
 	if err != nil {
 		return err
 	}
-	return nil
-}
 
-// this should be write file or something that works with sections
-func (g *Generator) copyFile(fsys fs.FS, path string) error {
-	src, err := fsys.Open(path)
+	// don't need to do this if we have the source i think?
+	slog.Info("Copying static content files...")
+	err = fswriter.CopyFilteredFS(
+		g.contentFS,
+		g.buildDir,
+		func(path string) bool {
+			return filepath.Ext(path) != ".md"
+		},
+	)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = src.Close() }()
 
-	destPath := filepath.Join(g.buildDir, path)
-	if err := os.MkdirAll(filepath.Dir(destPath), os.ModePerm); err != nil {
-		return err
-	}
-
-	dest, err := os.Create(destPath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = dest.Close() }()
-
-	if _, err := io.Copy(dest, src); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (g *Generator) sections() (map[string]*section.Section, error) {
-	sections := map[string]*section.Section{}
-	err := fs.WalkDir(g.contentFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if filepath.Ext(path) != ".md" {
-			return nil
-		}
-		file, err := g.contentFS.Open(path)
-		if err != nil {
-			return err
-		}
-		content, err := markdown.Parse(file)
-		if err != nil {
-			return err
-		}
-		page := section.Page{
-			URL:       g.url(path),
-			Title:     content.Title,
-			CreatedAt: content.CreatedAt,
-			UpdatedAt: content.UpdatedAt,
-			Content:   content.HTML,
-		}
-		dir := filepath.Dir(path)
-		if _, ok := sections[dir]; !ok {
-			sections[dir] = &section.Section{
-				Pages: []section.Page{},
+	slog.Info("Generating HTML files...")
+	for _, section := range s {
+		for _, page := range section.Pages {
+			slog.Info("Generating page", "url", page.URL)
+			tmpl, err := l.TemplateForContent(page.Source)
+			if err != nil {
+				return err
 			}
-		}
-		sections[dir].Pages = append(sections[dir].Pages, page)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return sections, nil
-}
-
-func (g *Generator) generateSection(section *section.Section, l *layout.Layout) error {
-	for _, page := range section.Pages {
-		tmpl, err := l.TemplateForContent(page.URL)
-		if err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(page.URL), os.ModePerm); err != nil {
-			return err
-		}
-		f, err := os.Create(destPath)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = f.Close() }()
-
-		if err := tmpl.Execute(f, page); err != nil {
-			return fmt.Errorf("failed to execute template for %s: %w", page.URL, err)
+			destPath := filepath.Join(g.buildDir, page.URL)
+			if err := os.MkdirAll(filepath.Dir(destPath), os.ModePerm); err != nil {
+				return err
+			}
+			tmpl.ExecuteToFile(destPath, page)
 		}
 	}
+
 	return nil
-}
-
-func (g *Generator) url(path string) string {
-	trimmed := strings.TrimSuffix(path, ".md")
-	var base string
-	if filepath.Base(path) == "index.md" {
-		base = fmt.Sprintf("%s.html", trimmed)
-	} else {
-		base = filepath.Join(trimmed, "index.html")
-	}
-
-	return filepath.Join(g.buildDir, base)
 }
