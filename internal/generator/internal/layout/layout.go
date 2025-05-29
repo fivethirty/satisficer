@@ -88,7 +88,7 @@ func templates(fsys fs.FS) (*template.Template, error) {
 
 func (t *Layout) TemplateForContent(contentPath string) (*template.Template, error) {
 	base := filepath.Base(contentPath)
-	targetBase := "single.html.tmpl"
+	targetBase := "page.html.tmpl"
 	if base == "index.md" {
 		targetBase = "index.html.tmpl"
 	}

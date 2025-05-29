@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -25,8 +26,11 @@ type File struct {
 	URL string
 }
 
+type Pages []Page
+
 type Section struct {
-	Pages []Page
+	Index *Page
+	Pages Pages
 	Files []File
 }
 
@@ -42,6 +46,8 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 		if d.IsDir() {
 			return nil
 		}
+
+		slog.Info("Processing file", "path", path)
 
 		dir := filepath.Dir(path)
 		if _, ok := sections[dir]; !ok {
@@ -68,13 +74,20 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 			return err
 		}
 
-		sections[dir].Pages = append(sections[dir].Pages, Page{
+		page := Page{
 			URL:       url(path),
 			Source:    path,
 			Title:     parsed.FrontMatter.Title,
 			CreatedAt: parsed.FrontMatter.CreatedAt,
 			UpdatedAt: parsed.FrontMatter.UpdatedAt,
-		})
+		}
+
+		if filepath.Base(path) == "index.md" {
+			sections[dir].Index = &page
+			return nil
+		}
+
+		sections[dir].Pages = append(sections[dir].Pages, page)
 
 		return nil
 	})
@@ -93,21 +106,21 @@ func url(path string) string {
 	}
 }
 
-func (s Section) ByTitle() Section {
-	sort.SliceStable(s.Pages, func(i, j int) bool {
-		return s.Pages[i].Title < s.Pages[j].Title
+func (p Pages) ByTitle() Pages {
+	sort.SliceStable(p, func(i, j int) bool {
+		return p[i].Title < p[j].Title
 	})
-	return s
+	return p
 }
 
-func (s Section) ByCreatedAt() Section {
-	sort.SliceStable(s.Pages, func(i, j int) bool {
-		return s.Pages[i].CreatedAt.Before(s.Pages[j].CreatedAt)
+func (p Pages) ByCreatedAt() Pages {
+	sort.SliceStable(p, func(i, j int) bool {
+		return p[i].CreatedAt.Before(p[j].CreatedAt)
 	})
-	return s
+	return p
 }
 
-func (s Section) Reverse() Section {
-	slices.Reverse(s.Pages)
-	return s
+func (p Pages) Reverse() Pages {
+	slices.Reverse(p)
+	return p
 }

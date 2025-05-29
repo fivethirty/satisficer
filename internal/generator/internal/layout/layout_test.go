@@ -1,13 +1,13 @@
 package layout_test
 
 import (
-	"io/fs"
 	"reflect"
 	"sort"
 	"testing"
 	"testing/fstest"
 
 	"github.com/fivethirty/satisficer/internal/generator/internal/layout"
+	"github.com/fivethirty/satisficer/internal/generator/internal/testutil"
 )
 
 var testFile = &fstest.MapFile{
@@ -20,27 +20,27 @@ func TestFromFS(t *testing.T) {
 	tests := []struct {
 		name              string
 		fs                fstest.MapFS
-		wantTemplateNames []string
-		wantStaticNames   []string
+		wantTemplatePaths []string
+		wantStaticPaths   []string
 		wantError         bool
 	}{
 		{
 			name: "can create layout with templates and static files",
 			fs: fstest.MapFS{
-				"index.html.tmpl":       testFile,
-				"single.html.tmpl":      testFile,
-				"blog/single.html.tmpl": testFile,
-				"blog/index.html.tmpl":  testFile,
-				"static/css/main.css":   testFile,
-				"static/favicon.ico":    testFile,
+				"index.html.tmpl":      testFile,
+				"page.html.tmpl":       testFile,
+				"blog/page.html.tmpl":  testFile,
+				"blog/index.html.tmpl": testFile,
+				"static/css/main.css":  testFile,
+				"static/favicon.ico":   testFile,
 			},
-			wantTemplateNames: []string{
+			wantTemplatePaths: []string{
 				"index.html.tmpl",
-				"single.html.tmpl",
-				"blog/single.html.tmpl",
+				"page.html.tmpl",
+				"blog/page.html.tmpl",
 				"blog/index.html.tmpl",
 			},
-			wantStaticNames: []string{
+			wantStaticPaths: []string{
 				"favicon.ico",
 				"css/main.css",
 			},
@@ -50,26 +50,26 @@ func TestFromFS(t *testing.T) {
 			fs: fstest.MapFS{
 				"index.html.tmpl": testFile,
 			},
-			wantTemplateNames: []string{
+			wantTemplatePaths: []string{
 				"index.html.tmpl",
 			},
-			wantStaticNames: []string{},
+			wantStaticPaths: []string{},
 		},
 		{
 			name: "can create layout with only static files",
 			fs: fstest.MapFS{
 				"static/css/main.css": &fstest.MapFile{},
 			},
-			wantTemplateNames: []string{},
-			wantStaticNames: []string{
+			wantTemplatePaths: []string{},
+			wantStaticPaths: []string{
 				"css/main.css",
 			},
 		},
 		{
 			name:              "can create layout with no templates or static files",
 			fs:                fstest.MapFS{},
-			wantTemplateNames: []string{},
-			wantStaticNames:   []string{},
+			wantTemplatePaths: []string{},
+			wantStaticPaths:   []string{},
 		},
 		{
 			name: "can't create layout if static dir is not a directory",
@@ -81,16 +81,16 @@ func TestFromFS(t *testing.T) {
 		{
 			name: "should treat .html.tmpl files in static dir as static files",
 			fs: fstest.MapFS{
-				"static/index.html.tmpl":       testFile,
-				"static/blog/single.html.tmpl": testFile,
-				"single.html.tmpl":             testFile,
+				"static/index.html.tmpl":     testFile,
+				"static/blog/page.html.tmpl": testFile,
+				"page.html.tmpl":             testFile,
 			},
-			wantTemplateNames: []string{
-				"single.html.tmpl",
+			wantTemplatePaths: []string{
+				"page.html.tmpl",
 			},
-			wantStaticNames: []string{
+			wantStaticPaths: []string{
 				"index.html.tmpl",
-				"blog/single.html.tmpl",
+				"blog/page.html.tmpl",
 			},
 		},
 	}
@@ -110,42 +110,29 @@ func TestFromFS(t *testing.T) {
 				t.Fatalf("expected error, got nil")
 			}
 
-			templateNames := make([]string, 0, len(test.wantTemplateNames))
+			templateNames := make([]string, 0, len(test.wantTemplatePaths))
 			for _, tmpl := range l.Templates.Templates() {
 				templateNames = append(templateNames, tmpl.Name())
 			}
 
 			sort.Strings(templateNames)
-			sort.Strings(test.wantTemplateNames)
-			if !reflect.DeepEqual(templateNames, test.wantTemplateNames) {
+			sort.Strings(test.wantTemplatePaths)
+			if !reflect.DeepEqual(templateNames, test.wantTemplatePaths) {
 				t.Fatalf(
 					"expected template names %v, got %v",
-					test.wantTemplateNames,
+					test.wantTemplatePaths,
 					templateNames,
 				)
 			}
 
-			staticNames := make([]string, 0, len(test.wantStaticNames))
+			staticPaths := []string{}
 			if l.Static != nil {
-				err = fs.WalkDir(l.Static, ".", func(path string, d fs.DirEntry, err error) error {
-					if err != nil {
-						return err
-					}
-					if d.IsDir() {
-						return nil
-					}
-					staticNames = append(staticNames, path)
-					return nil
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
+				staticPaths = testutil.SortedPaths(t, l.Static)
 			}
 
-			sort.Strings(staticNames)
-			sort.Strings(test.wantStaticNames)
-			if !reflect.DeepEqual(staticNames, test.wantStaticNames) {
-				t.Fatalf("expected static names %v, got %v", test.wantStaticNames, staticNames)
+			sort.Strings(test.wantStaticPaths)
+			if !reflect.DeepEqual(staticPaths, test.wantStaticPaths) {
+				t.Fatalf("expected static names %v, got %v", test.wantStaticPaths, staticPaths)
 			}
 		})
 	}
@@ -198,30 +185,30 @@ func TestTemplateForContent(t *testing.T) {
 			name:        "can get template for non-index.md page",
 			contentPath: "about.md",
 			fs: fstest.MapFS{
-				"single.html.tmpl": testFile,
+				"page.html.tmpl": testFile,
 			},
-			wantTemplateName: "single.html.tmpl",
+			wantTemplateName: "page.html.tmpl",
 		},
 		{
 			name:        "can fallback to root template for non-index.md page",
 			contentPath: "blog/post.md",
 			fs: fstest.MapFS{
-				"single.html.tmpl": testFile,
+				"page.html.tmpl": testFile,
 			},
-			wantTemplateName: "single.html.tmpl",
+			wantTemplateName: "page.html.tmpl",
 		},
 		{
 			name:        "can fallback to nearest template for non-index.md page",
 			contentPath: "blog/2025/post.md",
 			fs: fstest.MapFS{
-				"single.html.tmpl":      testFile,
-				"blog/single.html.tmpl": testFile,
+				"page.html.tmpl":      testFile,
+				"blog/page.html.tmpl": testFile,
 			},
-			wantTemplateName: "blog/single.html.tmpl",
+			wantTemplateName: "blog/page.html.tmpl",
 		},
 		{
-			name:        "can't get template for non-index.md page when no parent single.html.tmpl",
-			contentPath: "foo/bar/single.html.tmpl",
+			name:        "can't get template for non-index.md page when no parent page.html.tmpl",
+			contentPath: "foo/bar/page.html.tmpl",
 			fs:          fstest.MapFS{},
 			wantErr:     true,
 		},
