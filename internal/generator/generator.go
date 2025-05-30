@@ -20,10 +20,6 @@ type Generator struct {
 	buildDir  string
 }
 
-type Config struct {
-	Title string
-}
-
 func New(
 	layoutFS fs.FS,
 	contentFS fs.FS,

@@ -3,8 +3,10 @@ package generator_test
 import (
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -29,7 +31,7 @@ func TestGenerate(t *testing.T) {
 			),
 		}
 		indexTemplateFile = &fstest.MapFile{
-			Data: []byte("{{ .IndexPage.Title }}"),
+			Data: []byte("{{ .Index.Title }}"),
 		}
 		pageFile = &fstest.MapFile{
 			Data: []byte(
@@ -44,7 +46,7 @@ func TestGenerate(t *testing.T) {
 			),
 		}
 		pageTemplateFile = &fstest.MapFile{
-			Data: []byte("{{ .Page.Title }}"),
+			Data: []byte("{{ .Title }}"),
 		}
 		simpleLayoutFS = fstest.MapFS{
 			"index.html.tmpl": indexTemplateFile,
@@ -177,4 +179,254 @@ func TestGenerate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPageTemplateRendering(t *testing.T) {
+	t.Parallel()
+
+	var sb strings.Builder
+	sb.WriteString("{{ .URL}}\n")
+	sb.WriteString("{{ .Source}}\n")
+	sb.WriteString("{{ .Title}}\n")
+	sb.WriteString("{{ .CreatedAt}}\n")
+	sb.WriteString("{{ .UpdatedAt}}\n")
+	sb.WriteString("{{ .Content}}\n")
+	pageTemplate := sb.String()
+
+	layoutFS := fstest.MapFS{
+		"page.html.tmpl": {
+			Data: []byte(pageTemplate),
+		},
+	}
+
+	const (
+		mdPath   = "page.md"
+		htmlPath = "page/index.html"
+	)
+
+	tests := []struct {
+		name      string
+		content   fstest.MapFile
+		wantLines []string
+	}{
+		{
+			name: "renders page template with all fields",
+			content: fstest.MapFile{
+				Data: []byte(
+					testutil.ToContent(
+						t,
+						map[string]any{
+							"title":      "Test Page",
+							"created-at": "2025-05-13T00:00:00Z",
+							"updated-at": "2025-05-14T00:00:00Z",
+						},
+						"# Test Page Content",
+					),
+				),
+			},
+			wantLines: []string{
+				htmlPath,
+				mdPath,
+				"Test Page",
+				"2025-05-13 00:00:00 +0000 UTC",
+				"2025-05-14 00:00:00 +0000 UTC",
+				"<h1>Test Page Content</h1>",
+			},
+		},
+		{
+			name: "renders page template with only required fields",
+			content: fstest.MapFile{
+				Data: []byte(
+					testutil.ToContent(
+						t,
+						map[string]any{
+							"title":      "Test Page",
+							"created-at": "2025-05-13T00:00:00Z",
+						},
+						"# Test Page Content",
+					),
+				),
+			},
+			wantLines: []string{
+				htmlPath,
+				mdPath,
+				"Test Page",
+				"2025-05-13 00:00:00 +0000 UTC",
+				"<nil>",
+				"<h1>Test Page Content</h1>",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			contentFS := fstest.MapFS{
+				mdPath: &test.content,
+			}
+			g, err := generator.New(layoutFS, contentFS, dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = g.Generate()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			actualFile := filepath.Join(dir, htmlPath)
+			actualContent, err := os.ReadFile(actualFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			lines := strings.Split(strings.TrimSpace(string(actualContent)), "\n")
+			if !reflect.DeepEqual(lines, test.wantLines) {
+				t.Fatalf("expected lines %v, got %v", test.wantLines, lines)
+			}
+		})
+	}
+}
+
+func TestIndexTemplateRendering(t *testing.T) {
+	t.Parallel()
+
+	var sb strings.Builder
+	sb.WriteString("{{ .Index.URL }}\n")
+	sb.WriteString("{{ .Index.Source }}\n")
+	sb.WriteString("{{ .Index.Title }}\n")
+	sb.WriteString("{{ .Index.CreatedAt }}\n")
+	sb.WriteString("{{ .Index.UpdatedAt }}\n")
+	sb.WriteString("{{ .Index.Content }}\n")
+	sb.WriteString("{{ range .Pages }}")
+	sb.WriteString("{{ .URL }}\n")
+	sb.WriteString("{{ .Source }}\n")
+	sb.WriteString("{{ .Title }}\n")
+	sb.WriteString("{{ .CreatedAt }}\n")
+	sb.WriteString("{{ .UpdatedAt }}\n")
+	sb.WriteString("{{ .Content }}\n")
+	sb.WriteString("{{ end }}")
+	sb.WriteString("{{ range .Files }}")
+	sb.WriteString("{{ .URL }}\n")
+	sb.WriteString("{{ end }}")
+	indexTemplate := sb.String()
+
+	pageTemplate := "{{ .Content }}\n"
+
+	layoutFS := fstest.MapFS{
+		"index.html.tmpl": {
+			Data: []byte(indexTemplate),
+		},
+		"page.html.tmpl": {
+			Data: []byte(pageTemplate),
+		},
+	}
+
+	const (
+		mdPath   = "index.md"
+		htmlPath = "index.html"
+	)
+
+	tests := []struct {
+		name      string
+		contentFS fstest.MapFS
+		wantLines []string
+	}{
+		{
+			name: "renders index template",
+			contentFS: fstest.MapFS{
+				mdPath: &fstest.MapFile{
+					Data: []byte(
+						testutil.ToContent(
+							t,
+							map[string]any{
+								"title":      "Home Page",
+								"created-at": "2025-05-13T00:00:00Z",
+								"updated-at": "2025-05-14T00:00:00Z",
+							},
+							"# Welcome to the Home Page",
+						),
+					),
+				},
+				"page1.md": &fstest.MapFile{
+					Data: []byte(
+						testutil.ToContent(
+							t,
+							map[string]any{
+								"title":      "Page 1",
+								"created-at": "2025-05-15T00:00:00Z",
+								"updated-at": "2025-05-16T00:00:00Z",
+							},
+							"# Content of Page 1",
+						),
+					),
+				},
+				"page2.md": &fstest.MapFile{
+					Data: []byte(
+						testutil.ToContent(
+							t,
+							map[string]any{
+								"title":      "Page 2",
+								"created-at": "2025-05-17T00:00:00Z",
+								"updated-at": "2025-05-18T00:00:00Z",
+							},
+							"# Content of Page 2",
+						),
+					),
+				},
+				"main.js": &fstest.MapFile{
+					Data: []byte("console.log('Hello, world!');"),
+				},
+			},
+			wantLines: []string{
+				htmlPath,
+				mdPath,
+				"Home Page",
+				"2025-05-13 00:00:00 +0000 UTC",
+				"2025-05-14 00:00:00 +0000 UTC",
+				"<h1>Welcome to the Home Page</h1>",
+				"",
+				"page1/index.html",
+				"page1.md",
+				"Page 1",
+				"2025-05-15 00:00:00 +0000 UTC",
+				"2025-05-16 00:00:00 +0000 UTC",
+				"<h1>Content of Page 1</h1>",
+				"",
+				"page2/index.html",
+				"page2.md",
+				"Page 2",
+				"2025-05-17 00:00:00 +0000 UTC",
+				"2025-05-18 00:00:00 +0000 UTC",
+				"<h1>Content of Page 2</h1>",
+				"",
+				"main.js",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			g, err := generator.New(layoutFS, test.contentFS, dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = g.Generate()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			actualFile := filepath.Join(dir, htmlPath)
+			actualContent, err := os.ReadFile(actualFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			lines := strings.Split(strings.TrimSpace(string(actualContent)), "\n")
+			if !reflect.DeepEqual(lines, test.wantLines) {
+				t.Fatalf("expected lines %v, got %v", test.wantLines, lines)
+			}
+		})
+	}
+
 }

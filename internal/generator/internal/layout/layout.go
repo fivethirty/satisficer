@@ -3,6 +3,7 @@ package layout
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"path/filepath"
@@ -69,8 +70,9 @@ func templates(fsys fs.FS) (*template.Template, error) {
 		if err != nil {
 			return err
 		}
-		bytes := []byte{}
-		_, err = file.Read(bytes)
+		defer func() { _ = file.Close() }()
+
+		bytes, err := io.ReadAll(file)
 		if err != nil {
 			return err
 		}

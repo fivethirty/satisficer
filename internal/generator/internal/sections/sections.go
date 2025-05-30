@@ -14,24 +14,24 @@ import (
 	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
 )
 
+type Section struct {
+	Index *Page
+	Pages Pages
+	Files []File
+}
+type Pages []Page
+
 type Page struct {
 	URL       string
 	Source    string
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt *time.Time
+	Content   string
 }
 
 type File struct {
 	URL string
-}
-
-type Pages []Page
-
-type Section struct {
-	Index *Page
-	Pages Pages
-	Files []File
 }
 
 type ParseFunc func(io.Reader) (*markdown.ParsedFile, error)
@@ -80,6 +80,7 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 			Title:     parsed.FrontMatter.Title,
 			CreatedAt: parsed.FrontMatter.CreatedAt,
 			UpdatedAt: parsed.FrontMatter.UpdatedAt,
+			Content:   parsed.HTML,
 		}
 
 		if filepath.Base(path) == "index.md" {
