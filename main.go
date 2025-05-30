@@ -1,17 +1,16 @@
 package main
 
 import (
-	"embed"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/fivethirty/satisficer/internal/creator"
 )
 
 func main() {
 	flag.Parse()
-
-	out("\n//===[ S A T I S F I C E R ]===\\\\\n\n")
 
 	cmd := flag.Arg(0)
 
@@ -20,13 +19,18 @@ func main() {
 		os.Exit(0)
 	}
 
-	if cmd == "new" {
+	if cmd == "create" {
 		if flag.NArg() != 2 {
-			out("Usage: satisficer new <directory>\n")
+			stdout("Usage: satisficer new <directory>\n")
 			os.Exit(0)
 		}
+		stdout("\n//===[ S A T I S F I C E R ]===\\\\\n\n")
 		dir := flag.Arg(1)
-		new(dir)
+		err := creator.Create(dir)
+		if err != nil {
+			exit(err)
+		}
+		os.Exit(0)
 	}
 
 	unknown(cmd)
@@ -36,38 +40,27 @@ func help() {
 	sb := strings.Builder{}
 	sb.WriteString("Usage: satisficer <command>\n\n")
 	sb.WriteString("Commands:\n")
-	sb.WriteString("  new      Create a new site\n")
+	sb.WriteString("  create   Create a new site\n")
 	sb.WriteString("  serve    Start a local server to serve the site\n")
 	sb.WriteString("  build    Generate the static site in the current directory\n")
 	sb.WriteString("  help     Show this help message\n\n")
-	out(sb.String())
-}
-
-//go:embed default
-var site embed.FS
-
-func new(dir string) {
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		error(fmt.Sprintf("Error creating directory: %v\n", err))
-	}
+	stdout(sb.String())
 }
 
 func unknown(cmd string) {
 	sb := strings.Builder{}
 	sb.WriteString(fmt.Sprintf("Unknown command: %s\n", cmd))
 	sb.WriteString("Run 'satisficer help' for usage.\n")
-	out(sb.String())
+	stdout(sb.String())
 }
 
-func out(s string) {
-	_, err := os.Stdout.WriteString(s)
-	if err != nil {
-		_, _ = os.Stderr.WriteString(err.Error())
-		os.Exit(1)
+func stdout(s string) {
+	if _, err := fmt.Fprint(os.Stdout, s); err != nil {
+		exit(err)
 	}
 }
 
-func error(s string) {
-	_, _ = os.Stderr.WriteString(s)
+func exit(err error) {
+	_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 	os.Exit(1)
 }

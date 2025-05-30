@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
-	"github.com/fivethirty/satisficer/internal/generator/internal/testutil"
+	"github.com/fivethirty/satisficer/internal/testutil"
 )
 
 func TestParse(t *testing.T) {

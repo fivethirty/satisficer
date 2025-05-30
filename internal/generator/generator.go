@@ -2,13 +2,13 @@ package generator
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"text/template"
 
+	"github.com/fivethirty/satisficer/internal/fsutil"
 	"github.com/fivethirty/satisficer/internal/generator/internal/layout"
 	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
 	"github.com/fivethirty/satisficer/internal/generator/internal/sections"
@@ -55,7 +55,7 @@ func (g *Generator) Generate() error {
 
 	if l.Static != nil {
 		slog.Info("Writing static layout files...")
-		err = g.copyFS(l.Static)
+		err = fsutil.CopyFS(l.Static, g.buildDir)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func (g *Generator) Generate() error {
 	for _, section := range s {
 		for _, file := range section.Files {
 			slog.Info("Copying file", "path", file.URL)
-			if err := g.writeFSFile(g.contentFS, file.URL); err != nil {
+			if err := fsutil.CopyFile(g.contentFS, file.URL, g.buildDir); err != nil {
 				return err
 			}
 		}
@@ -102,53 +102,11 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
-func (g *Generator) copyFS(src fs.FS) error {
-	return fs.WalkDir(src, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		slog.Info("Copying file", "src", path, "dest", g.buildDir)
-		return g.writeFSFile(src, path)
-	})
-}
-
-func (g *Generator) writeFSFile(fsys fs.FS, path string) error {
-	src, err := fsys.Open(path)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = src.Close() }()
-	dest, err := g.createDestFile(path)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = dest.Close() }()
-	_, err = io.Copy(dest, src)
-	return err
-}
-
 func (g *Generator) writeContent(tmpl *template.Template, data any, path string) error {
-	dest, err := g.createDestFile(path)
+	dest, err := fsutil.CreateFile(filepath.Join(g.buildDir, path))
 	if err != nil {
 		return err
 	}
 	defer func() { _ = dest.Close() }()
 	return tmpl.Execute(dest, data)
-}
-
-func (g *Generator) createDestFile(path string) (*os.File, error) {
-	dest := filepath.Join(g.buildDir, path)
-	if err := os.MkdirAll(filepath.Dir(dest), os.ModePerm); err != nil {
-		return nil, err
-	}
-
-	destFile, err := os.Create(dest)
-	if err != nil {
-		return nil, err
-	}
-	return destFile, nil
 }
