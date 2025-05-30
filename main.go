@@ -15,6 +15,7 @@ func main() {
 	cmd := flag.Arg(0)
 
 	if cmd == "help" || flag.NArg() == 0 {
+		stdout("\n//===[ S A T I S F I C E R ]===\\\\\n\n")
 		help()
 		os.Exit(0)
 	}
@@ -33,6 +34,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	if cmd == "build" {
+		if flag.NArg() != 3 {
+			stdout("Usage: satisficer build <project-dir> <output-dir>\n")
+			os.Exit(0)
+		}
+		stdout("\n//===[ S A T I S F I C E R ]===\\\\\n\n")
+		os.Exit(0)
+	}
+
 	unknown(cmd)
 }
 
@@ -41,8 +51,8 @@ func help() {
 	sb.WriteString("Usage: satisficer <command>\n\n")
 	sb.WriteString("Commands:\n")
 	sb.WriteString("  create   Create a new site\n")
-	sb.WriteString("  serve    Start a local server to serve the site\n")
-	sb.WriteString("  build    Generate the static site in the current directory\n")
+	sb.WriteString("  serve    Start a local dev server\n")
+	sb.WriteString("  build    Build a site\n")
 	sb.WriteString("  help     Show this help message\n\n")
 	stdout(sb.String())
 }
