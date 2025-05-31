@@ -4,12 +4,25 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/fivethirty/satisficer/internal/creator"
+	"github.com/fivethirty/satisficer/internal/commands"
 )
 
 func main() {
+	if flag.CommandLine == nil {
+		os.Exit(1)
+	}
+	if err := commands.Run(os.Args); err != nil {
+		if err == commands.ErrInvalidUsage {
+			flag.CommandLine.Usage()
+			os.Exit(0)
+		}
+		fmt.Printf("Error: %s\n", err.Error())
+		os.Exit(1)
+	}
+}
+
+/*func main() {
 	flag.Parse()
 
 	cmd := flag.Arg(0)
@@ -62,15 +75,4 @@ func unknown(cmd string) {
 	sb.WriteString(fmt.Sprintf("Unknown command: %s\n", cmd))
 	sb.WriteString("Run 'satisficer help' for usage.\n")
 	stdout(sb.String())
-}
-
-func stdout(s string) {
-	if _, err := fmt.Fprint(os.Stdout, s); err != nil {
-		exit(err)
-	}
-}
-
-func exit(err error) {
-	_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-	os.Exit(1)
-}
+}*/

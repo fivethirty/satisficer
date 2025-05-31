@@ -26,11 +26,11 @@ func New(
 	outputDir string,
 ) (*Generator, error) {
 	info, err := os.Stat(outputDir)
-	if err != nil {
-		return nil, err
-	}
-	if !info.IsDir() {
+	if info != nil && !info.IsDir() {
 		return nil, fmt.Errorf("output dir is not a directory: %s", outputDir)
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
 	}
 
 	return &Generator{
