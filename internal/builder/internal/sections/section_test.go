@@ -9,8 +9,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
-	"github.com/fivethirty/satisficer/internal/generator/internal/sections"
+	"github.com/fivethirty/satisficer/internal/builder/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/builder/internal/sections"
 )
 
 func fakeParseFunc(_ io.Reader) (*markdown.ParsedFile, error) {

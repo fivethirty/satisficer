@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/builder/internal/markdown"
 )
 
 type Section struct {

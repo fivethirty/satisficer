@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/builder/internal/markdown"
 	"github.com/fivethirty/satisficer/internal/testutil"
 )
 

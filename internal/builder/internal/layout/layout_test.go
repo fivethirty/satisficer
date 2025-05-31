@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/fivethirty/satisficer/internal/generator/internal/layout"
+	"github.com/fivethirty/satisficer/internal/builder/internal/layout"
 	"github.com/fivethirty/satisficer/internal/testutil"
 )
 

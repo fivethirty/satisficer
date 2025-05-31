@@ -1,4 +1,4 @@
-package generator_test
+package builder_test
 
 import (
 	"io/fs"
@@ -10,7 +10,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/fivethirty/satisficer/internal/generator"
+	"github.com/fivethirty/satisficer/internal/builder"
 	"github.com/fivethirty/satisficer/internal/testutil"
 )
 
@@ -156,11 +156,11 @@ func TestGenerate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
-			g, err := generator.New(test.layoutFS, test.contentFS, dir)
+			b, err := builder.New(test.layoutFS, test.contentFS, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = g.Generate()
+			err = b.Generate()
 			if err != nil {
 				if !test.wantError {
 					t.Fatalf("unexpected error: %v", err)
@@ -264,11 +264,11 @@ func TestPageTemplateRendering(t *testing.T) {
 			contentFS := fstest.MapFS{
 				mdPath: &test.content,
 			}
-			g, err := generator.New(layoutFS, contentFS, dir)
+			b, err := builder.New(layoutFS, contentFS, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = g.Generate()
+			err = b.Generate()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -407,7 +407,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
-			g, err := generator.New(layoutFS, test.contentFS, dir)
+			g, err := builder.New(layoutFS, test.contentFS, dir)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -1,4 +1,4 @@
-package generator
+package builder
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/fivethirty/satisficer/internal/builder/internal/layout"
+	"github.com/fivethirty/satisficer/internal/builder/internal/markdown"
+	"github.com/fivethirty/satisficer/internal/builder/internal/sections"
 	"github.com/fivethirty/satisficer/internal/fsutil"
-	"github.com/fivethirty/satisficer/internal/generator/internal/layout"
-	"github.com/fivethirty/satisficer/internal/generator/internal/markdown"
-	"github.com/fivethirty/satisficer/internal/generator/internal/sections"
 )
 
-type Generator struct {
+type Builder struct {
 	layoutFS  fs.FS
 	contentFS fs.FS
 	buildDir  string
@@ -24,7 +24,7 @@ func New(
 	layoutFS fs.FS,
 	contentFS fs.FS,
 	outputDir string,
-) (*Generator, error) {
+) (*Builder, error) {
 	info, err := os.Stat(outputDir)
 	if info != nil && !info.IsDir() {
 		return nil, fmt.Errorf("output dir is not a directory: %s", outputDir)
@@ -33,14 +33,15 @@ func New(
 		return nil, err
 	}
 
-	return &Generator{
+	return &Builder{
 		layoutFS:  layoutFS,
 		contentFS: contentFS,
 		buildDir:  outputDir,
 	}, nil
 }
 
-func (g *Generator) Generate() error {
+func (g *Builder) Build() error {
+	slog.Info("Building project", "outputDir", g.buildDir)
 	slog.Info("Loading layout...")
 	l, err := layout.FromFS(g.layoutFS)
 	if err != nil {
@@ -99,10 +100,11 @@ func (g *Generator) Generate() error {
 		}
 	}
 
+	slog.Info("Project built successfully", "outputDir", g.buildDir)
 	return nil
 }
 
-func (g *Generator) writeContent(tmpl *template.Template, data any, path string) error {
+func (g *Builder) writeContent(tmpl *template.Template, data any, path string) error {
 	dest, err := fsutil.CreateFile(filepath.Join(g.buildDir, path))
 	if err != nil {
 		return err
