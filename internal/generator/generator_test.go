@@ -23,8 +23,8 @@ func TestGenerate(t *testing.T) {
 				testutil.ToContent(
 					t,
 					map[string]any{
-						"title":      "Home Page",
-						"created-at": "2025-05-13T00:00:00Z",
+						"title":     "Home Page",
+						"createdAt": "2025-05-13T00:00:00Z",
 					},
 					"# Welcome to the Home Page",
 				),
@@ -38,8 +38,8 @@ func TestGenerate(t *testing.T) {
 				testutil.ToContent(
 					t,
 					map[string]any{
-						"title":      "Home Page",
-						"created-at": "2025-05-13T00:00:00Z",
+						"title":     "Home Page",
+						"createdAt": "2025-05-13T00:00:00Z",
 					},
 					"# Welcome to Some Other Page",
 				),
@@ -216,9 +216,9 @@ func TestPageTemplateRendering(t *testing.T) {
 					testutil.ToContent(
 						t,
 						map[string]any{
-							"title":      "Test Page",
-							"created-at": "2025-05-13T00:00:00Z",
-							"updated-at": "2025-05-14T00:00:00Z",
+							"title":     "Test Page",
+							"createdAt": "2025-05-13T00:00:00Z",
+							"updatedAt": "2025-05-14T00:00:00Z",
 						},
 						"# Test Page Content",
 					),
@@ -240,8 +240,8 @@ func TestPageTemplateRendering(t *testing.T) {
 					testutil.ToContent(
 						t,
 						map[string]any{
-							"title":      "Test Page",
-							"created-at": "2025-05-13T00:00:00Z",
+							"title":     "Test Page",
+							"createdAt": "2025-05-13T00:00:00Z",
 						},
 						"# Test Page Content",
 					),
@@ -339,9 +339,9 @@ func TestIndexTemplateRendering(t *testing.T) {
 						testutil.ToContent(
 							t,
 							map[string]any{
-								"title":      "Home Page",
-								"created-at": "2025-05-13T00:00:00Z",
-								"updated-at": "2025-05-14T00:00:00Z",
+								"title":     "Home Page",
+								"createdAt": "2025-05-13T00:00:00Z",
+								"updatedAt": "2025-05-14T00:00:00Z",
 							},
 							"# Welcome to the Home Page",
 						),
@@ -352,9 +352,9 @@ func TestIndexTemplateRendering(t *testing.T) {
 						testutil.ToContent(
 							t,
 							map[string]any{
-								"title":      "Page 1",
-								"created-at": "2025-05-15T00:00:00Z",
-								"updated-at": "2025-05-16T00:00:00Z",
+								"title":     "Page 1",
+								"createdAt": "2025-05-15T00:00:00Z",
+								"updatedAt": "2025-05-16T00:00:00Z",
 							},
 							"# Content of Page 1",
 						),
@@ -365,9 +365,9 @@ func TestIndexTemplateRendering(t *testing.T) {
 						testutil.ToContent(
 							t,
 							map[string]any{
-								"title":      "Page 2",
-								"created-at": "2025-05-17T00:00:00Z",
-								"updated-at": "2025-05-18T00:00:00Z",
+								"title":     "Page 2",
+								"createdAt": "2025-05-17T00:00:00Z",
+								"updatedAt": "2025-05-18T00:00:00Z",
 							},
 							"# Content of Page 2",
 						),

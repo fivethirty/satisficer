@@ -24,8 +24,8 @@ func TestParse(t *testing.T) {
 			markdown: testutil.ToContent(
 				t,
 				map[string]any{
-					"title":      "Test Title",
-					"created-at": "2025-05-13T00:00:00Z",
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
 				},
 				"# Test Content",
 			),
@@ -43,10 +43,9 @@ func TestParse(t *testing.T) {
 			markdown: testutil.ToContent(
 				t,
 				map[string]any{
-					"title":      "Test Title",
-					"created-at": "2025-05-13T00:00:00Z",
-					"updated-at": "2025-05-14T00:00:00Z",
-					"template":   "custom.html.tmpl",
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
+					"updatedAt": "2025-05-14T00:00:00Z",
 				},
 				"# Test Content",
 			),
@@ -55,7 +54,6 @@ func TestParse(t *testing.T) {
 					Title:     "Test Title",
 					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
 					UpdatedAt: testutil.Ptr(t, time.Date(2025, 5, 14, 0, 0, 0, 0, time.UTC)),
-					Template:  "custom.html.tmpl",
 				},
 				HTML: "<h1>Test Content</h1>\n",
 			},
@@ -90,14 +88,14 @@ func TestParse(t *testing.T) {
 			markdown: testutil.ToContent(
 				t,
 				map[string]any{
-					"created-at": "2025-05-13T00:00:00Z",
+					"createdAt": "2025-05-13T00:00:00Z",
 				},
 				"# Test Content",
 			),
 			wantError: true,
 		},
 		{
-			name: "can't load a page with missing created-at in front matter",
+			name: "can't load a page with missing createdAt in front matter",
 			markdown: testutil.ToContent(
 				t,
 				map[string]any{

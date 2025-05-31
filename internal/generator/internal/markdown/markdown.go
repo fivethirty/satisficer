@@ -19,9 +19,8 @@ type ParsedFile struct {
 
 type FrontMatter struct {
 	Title     string     `json:"title"`
-	CreatedAt time.Time  `json:"created-at"`
-	UpdatedAt *time.Time `json:"updated-at"`
-	Template  string     `json:"template"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt *time.Time `json:"updatedAt"`
 }
 
 func (fm *FrontMatter) validate() error {

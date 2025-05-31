@@ -1,9 +1,7 @@
 ---
-{ "title": "satisficer", "created_at": "2025-05-29T00:00:00Z" }
+{ "title": "satisficer", "createdAt": "2025-05-29T00:00:00Z" }
 ---
 
-# satisficer
+# //===[ S A T I S F I C E R ]===\\\\
 
-welcome to satisficer.
-
-(github)[https://github.com/fivethirty/satisficer]
+[github](https://github.com/fivethirty/satisficer)
