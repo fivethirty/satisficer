@@ -5,13 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 
 	"github.com/fivethirty/satisficer/internal/builder"
 	"github.com/fivethirty/satisficer/internal/creator"
 )
-
-const header string = "\n//===[ S A T I S F I C E R ]===\\\\\n\n"
 
 type command struct {
 	usage   string
@@ -55,9 +54,13 @@ var commands = map[string]*command{
 	},
 }
 
-const usagePath = "usage/main.txt"
+const (
+	usagePath = "usage/main.txt"
+	header    = "\n//===[ S A T I S F I C E R ]===\\\\\n\n"
+)
 
 func Execute(args []string) error {
+	slog.Default()
 	mainFlagSet := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	mainUsage, err := usageFunc(usagePath)
 	if err != nil {
