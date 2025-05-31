@@ -1,18 +1,14 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
-	"github.com/fivethirty/satisficer/internal/executor"
+	"github.com/fivethirty/satisficer/internal/commands"
 )
 
 func main() {
-	if flag.CommandLine == nil {
-		os.Exit(1)
-	}
-	if err := executor.Execute(os.Args); err != nil {
+	if err := commands.Execute(os.Args); err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
 		os.Exit(1)
 	}

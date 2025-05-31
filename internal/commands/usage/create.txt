@@ -1,0 +1,4 @@
+Usage: satisficer create <project-dir>
+
+Creates a new project in the specified directory. The directory must not already
+exist.

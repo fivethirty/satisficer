@@ -1,0 +1,4 @@
+Usage: satisficer build <project-dir> <output-dir>
+
+Builds the project located in the specified directory and outputs the generated
+files to the specified output directory.
