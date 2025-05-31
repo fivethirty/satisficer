@@ -2,10 +2,11 @@ package commands
 
 import (
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
-	"log/slog"
 	"os"
 
 	"github.com/fivethirty/satisficer/internal/builder"
@@ -55,55 +56,80 @@ var commands = map[string]*command{
 }
 
 const (
-	usagePath = "usage/main.txt"
-	header    = "\n//===[ S A T I S F I C E R ]===\\\\\n\n"
+	mainUsagePath = "usage/main.txt"
+	header        = "\n//===[ S A T I S F I C E R ]===\\\\\n\n"
 )
 
 func Execute(args []string) error {
-	slog.Default()
-	mainFlagSet := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	mainUsage, err := usageFunc(usagePath)
+	mainFlagSet := flagSet(args[0])
+	mainUsage, err := usage(mainUsagePath)
 	if err != nil {
 		return err
 	}
-
-	mainFlagSet.Usage = mainUsage
-	if err := mainFlagSet.Parse(args[1:]); err != nil {
-		return nil
+	if err := parse(mainFlagSet, args[1:], mainUsage); err != nil {
+		return err
 	}
 
 	subName := mainFlagSet.Arg(0)
-	subFlagSet := flag.NewFlagSet(subName, flag.ContinueOnError)
+	if subName == "" {
+		return mainUsage(nil)
+	}
+	subFlagSet := flagSet(subName)
 
 	subCommand, ok := commands[subName]
 	if !ok {
-		mainUsage()
-		return nil
+		return mainUsage(fmt.Errorf("unknown command: %s%w", subName, ErrBadCommand))
 	}
 
-	subUsage, err := usageFunc(subCommand.usage)
+	subUsage, err := usage(subCommand.usage)
 	if err != nil {
 		return err
 	}
-	subFlagSet.Usage = subUsage
 
-	if err := subFlagSet.Parse(args[2:]); err != nil {
-		return nil
+	if err := parse(subFlagSet, args[2:], subUsage); err != nil {
+		return err
 	}
 	if subFlagSet.NArg() != subCommand.numArgs {
-		subFlagSet.Usage()
-		return nil
+		return subUsage(
+			fmt.Errorf(
+				"expected %d arguments, got %d%w",
+				subCommand.numArgs,
+				subFlagSet.NArg(),
+				ErrBadCommand,
+			),
+		)
 	}
 	fmt.Print(header)
 	return subCommand.execute(subFlagSet.Args())
 }
 
-func usageFunc(path string) (func(), error) {
-	usage, err := usageFS.ReadFile(path)
+func flagSet(name string) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	return fs
+}
+
+type usageFunc func(error) error
+
+func usage(usagePath string) (usageFunc, error) {
+	usage, err := usageFS.ReadFile(usagePath)
 	if err != nil {
 		return nil, err
 	}
-	return func() {
+	return func(err error) error {
 		fmt.Println(string(usage))
+		return err
 	}, nil
+}
+
+// Bit of a hack that this is empty, but it allows us to figure out
+// when to exit with a specific error code upstream without polluting
+// the log message.
+var ErrBadCommand = errors.New("")
+
+func parse(fs *flag.FlagSet, args []string, uf usageFunc) error {
+	if err := fs.Parse(args); err != nil {
+		return uf(fmt.Errorf("%w%w", ErrBadCommand, err))
+	}
+	return nil
 }
