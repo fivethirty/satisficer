@@ -56,7 +56,7 @@ func (g *Builder) Build() error {
 
 	if l.Static != nil {
 		slog.Info("Writing static layout files...")
-		err = fsutil.CopyFS(l.Static, g.buildDir)
+		err = fsutil.CopyFS(l.Static, filepath.Join(g.buildDir, layout.StaticDir))
 		if err != nil {
 			return err
 		}

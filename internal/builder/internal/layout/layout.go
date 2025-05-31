@@ -16,20 +16,20 @@ type Layout struct {
 	Templates *template.Template
 }
 
-const staticDir = "static"
+const StaticDir = "static"
 
 func FromFS(fsys fs.FS) (*Layout, error) {
-	info, err := fs.Stat(fsys, staticDir)
+	info, err := fs.Stat(fsys, StaticDir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 	if err == nil && !info.IsDir() {
-		return nil, fmt.Errorf("static directory %s is not a directory", staticDir)
+		return nil, fmt.Errorf("static directory %s is not a directory", StaticDir)
 	}
 
 	var static fs.FS
 	if err == nil {
-		sub, err := fs.Sub(fsys, staticDir)
+		sub, err := fs.Sub(fsys, StaticDir)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +55,7 @@ func templates(fsys fs.FS) (*template.Template, error) {
 		}
 
 		if d.IsDir() {
-			if path == staticDir {
+			if path == StaticDir {
 				return fs.SkipDir
 			}
 			return nil

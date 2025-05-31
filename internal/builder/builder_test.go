@@ -121,7 +121,7 @@ func TestGenerate(t *testing.T) {
 				"index.md": indexFile,
 				"page.md":  pageFile,
 			},
-			wantPaths: []string{"index.html", "page/index.html", "main.js"},
+			wantPaths: []string{"index.html", "page/index.html", "static/main.js"},
 		},
 		{
 			name:     "can generage a site with static content files",
@@ -160,7 +160,7 @@ func TestGenerate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = b.Generate()
+			err = b.Build()
 			if err != nil {
 				if !test.wantError {
 					t.Fatalf("unexpected error: %v", err)
@@ -268,7 +268,7 @@ func TestPageTemplateRendering(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = b.Generate()
+			err = b.Build()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -411,7 +411,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = g.Generate()
+			err = g.Build()
 			if err != nil {
 				t.Fatal(err)
 			}
