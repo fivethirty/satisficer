@@ -32,6 +32,8 @@ func Start(projectFS fs.FS, port int) error {
 	}
 	defer watcher.Stop()
 
+	// xxx: idea: rotate tmp dirs and delete the old ones?
+	// this will keep
 	go func() {
 		for t := range watcher.C {
 			log.Println("Change detected at", t)

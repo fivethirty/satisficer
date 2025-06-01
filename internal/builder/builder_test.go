@@ -14,6 +14,23 @@ import (
 	"github.com/fivethirty/satisficer/internal/testutil"
 )
 
+func projectFS(t *testing.T, layoutFS fstest.MapFS, contentFS fstest.MapFS) fs.FS {
+	t.Helper()
+
+	result := fstest.MapFS{}
+
+	// Create the layout files in the temporary directory
+	for path, file := range layoutFS {
+		result[filepath.Join(builder.LayoutDir, path)] = file
+	}
+
+	for path, file := range contentFS {
+		result[filepath.Join(builder.ContentDir, path)] = file
+	}
+
+	return result
+}
+
 func TestGenerate(t *testing.T) {
 	t.Parallel()
 
@@ -60,8 +77,8 @@ func TestGenerate(t *testing.T) {
 	tests := []struct {
 		name      string
 		projectFS fs.FS
-		layoutFS  fs.FS
-		contentFS fs.FS
+		layoutFS  fstest.MapFS
+		contentFS fstest.MapFS
 		wantPaths []string
 		wantError bool
 	}{
@@ -157,7 +174,8 @@ func TestGenerate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
-			b, err := builder.New(test.layoutFS, test.contentFS, dir)
+			pfs := projectFS(t, test.layoutFS, test.contentFS)
+			b, err := builder.New(pfs, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -265,7 +283,8 @@ func TestPageTemplateRendering(t *testing.T) {
 			contentFS := fstest.MapFS{
 				mdPath: &test.content,
 			}
-			b, err := builder.New(layoutFS, contentFS, dir)
+			pfs := projectFS(t, layoutFS, contentFS)
+			b, err := builder.New(pfs, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -408,7 +427,8 @@ func TestIndexTemplateRendering(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
-			g, err := builder.New(layoutFS, test.contentFS, dir)
+			pfs := projectFS(t, layoutFS, test.contentFS)
+			g, err := builder.New(pfs, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
