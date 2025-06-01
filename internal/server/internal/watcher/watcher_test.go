@@ -91,14 +91,14 @@ func TestWatcher(t *testing.T) {
 			if err := w.Start(); err != nil {
 				t.Fatal(err)
 			}
-			defer w.Close()
+			defer w.Stop()
 
 			w.FSys = test.t2State
 
 			channel <- t1
 
 			select {
-			case eventTime := <-w.C:
+			case eventTime := <-w.C():
 				if !test.expectEvent {
 					t.Fatal("expected no event, but got one")
 				}

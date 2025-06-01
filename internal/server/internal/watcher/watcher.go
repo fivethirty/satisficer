@@ -4,24 +4,25 @@ import (
 	"fmt"
 	"io/fs"
 	"reflect"
+	"sync"
 	"time"
 )
 
 type Watcher struct {
-	FSys     fs.FS
-	C        chan time.Time
-	trigger  chan time.Time
-	done     chan bool
-	previous map[string]time.Time
-	current  map[string]time.Time
+	FSys       fs.FS
+	c          chan time.Time
+	trigger    <-chan time.Time
+	done       chan bool
+	previous   map[string]time.Time
+	current    map[string]time.Time
+	isRunning  bool
+	startMutex sync.Mutex
 }
 
-func New(fsys fs.FS, trigger chan time.Time) (*Watcher, error) {
+func New(fsys fs.FS, trigger <-chan time.Time) (*Watcher, error) {
 	w := Watcher{
 		FSys:     fsys,
-		C:        make(chan time.Time),
 		trigger:  trigger,
-		done:     make(chan bool),
 		previous: make(map[string]time.Time),
 		current:  make(map[string]time.Time),
 	}
@@ -31,7 +32,20 @@ func New(fsys fs.FS, trigger chan time.Time) (*Watcher, error) {
 	return &w, nil
 }
 
+func (w *Watcher) C() chan time.Time {
+	return w.c
+}
+
 func (w *Watcher) Start() error {
+	w.startMutex.Lock()
+	defer w.startMutex.Unlock()
+	if w.isRunning {
+		return fmt.Errorf("watcher already started")
+	}
+	w.isRunning = true
+	w.c = make(chan time.Time)
+	w.done = make(chan bool)
+
 	go func() {
 		for {
 			select {
@@ -45,17 +59,18 @@ func (w *Watcher) Start() error {
 				if !changed {
 					continue
 				}
-				w.C <- t
+				w.c <- t
 			}
 		}
 	}()
 	return nil
 }
 
-func (w *Watcher) Close() {
+func (w *Watcher) Stop() {
 	w.done <- true
 	close(w.done)
-	close(w.C)
+	close(w.c)
+	w.isRunning = false
 }
 
 func (w *Watcher) update() error {

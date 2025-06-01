@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"log/slog"
 	"os"
 	"strings"
@@ -38,17 +37,8 @@ var Commands = map[string]*Command{
 		NumArgs: 2,
 		Execute: func(args []string) error {
 			projectFS := os.DirFS(args[0])
-			layoutFS, err := fs.Sub(projectFS, "layout")
-			if err != nil {
-				return err
-			}
-			contentFS, err := fs.Sub(projectFS, "content")
-			if err != nil {
-				return err
-			}
-
 			outputDir := args[1]
-			b, err := builder.New(layoutFS, contentFS, outputDir)
+			b, err := builder.New(projectFS, outputDir)
 			if err != nil {
 				return err
 			}

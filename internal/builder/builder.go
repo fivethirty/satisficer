@@ -15,14 +15,14 @@ import (
 )
 
 type Builder struct {
+	projectFS fs.FS
 	layoutFS  fs.FS
 	contentFS fs.FS
 	buildDir  string
 }
 
 func New(
-	layoutFS fs.FS,
-	contentFS fs.FS,
+	projectFS fs.FS,
 	outputDir string,
 ) (*Builder, error) {
 	info, err := os.Stat(outputDir)
@@ -33,11 +33,29 @@ func New(
 		return nil, err
 	}
 
+	layoutFS, err := fs.Sub(projectFS, "layout")
+	if err != nil {
+		return nil, err
+	}
+	contentFS, err := fs.Sub(projectFS, "content")
+	if err != nil {
+		return nil, err
+	}
+
 	return &Builder{
+		projectFS: projectFS,
 		layoutFS:  layoutFS,
 		contentFS: contentFS,
 		buildDir:  outputDir,
 	}, nil
+}
+
+func (g *Builder) BuildDir() string {
+	return g.buildDir
+}
+
+func (g *Builder) ProjectFS() fs.FS {
+	return g.projectFS
 }
 
 func (g *Builder) Build() error {
