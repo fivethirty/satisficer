@@ -59,6 +59,7 @@ func TestGenerate(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		projectFS fs.FS
 		layoutFS  fs.FS
 		contentFS fs.FS
 		wantPaths []string
@@ -428,5 +429,4 @@ func TestIndexTemplateRendering(t *testing.T) {
 			}
 		})
 	}
-
 }

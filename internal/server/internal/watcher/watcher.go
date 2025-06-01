@@ -10,7 +10,7 @@ import (
 
 type Watcher struct {
 	FSys       fs.FS
-	c          chan time.Time
+	C          chan time.Time
 	trigger    <-chan time.Time
 	done       chan bool
 	previous   map[string]time.Time
@@ -32,10 +32,6 @@ func New(fsys fs.FS, trigger <-chan time.Time) (*Watcher, error) {
 	return &w, nil
 }
 
-func (w *Watcher) C() chan time.Time {
-	return w.c
-}
-
 func (w *Watcher) Start() error {
 	w.startMutex.Lock()
 	defer w.startMutex.Unlock()
@@ -43,7 +39,7 @@ func (w *Watcher) Start() error {
 		return fmt.Errorf("watcher already started")
 	}
 	w.isRunning = true
-	w.c = make(chan time.Time)
+	w.C = make(chan time.Time)
 	w.done = make(chan bool)
 
 	go func() {
@@ -59,7 +55,7 @@ func (w *Watcher) Start() error {
 				if !changed {
 					continue
 				}
-				w.c <- t
+				w.C <- t
 			}
 		}
 	}()
@@ -69,7 +65,7 @@ func (w *Watcher) Start() error {
 func (w *Watcher) Stop() {
 	w.done <- true
 	close(w.done)
-	close(w.c)
+	close(w.C)
 	w.isRunning = false
 }
 

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -10,55 +11,42 @@ import (
 	"github.com/fivethirty/satisficer/internal/server/internal/watcher"
 )
 
-type Server struct {
-	Port      int
-	ProjectFS fs.FS
-	builder   Builder
-	watcher   Watcher
-}
-
-type Builder interface {
-	Build() error
-	BuildDir() string
-	ProjectFS() fs.FS
-}
-
-type Watcher interface {
-	C() chan time.Time
-	Start() error
-	Stop()
-}
-
-func New(projectFS fs.FS, port int) (*Server, error) {
-	// xxx this is the wrong dir
-	builder, err := builder.New(projectFS, "build")
+func Start(projectFS fs.FS, port int) error {
+	outputDir := "some temp dir"
+	b, err := builder.New(projectFS, outputDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	if err := b.Build(); err != nil {
+		return err
+	}
+
 	ticker := time.NewTicker(time.Second)
 	watcher, err := watcher.New(projectFS, ticker.C)
 	if err != nil {
-		return nil, err
-	}
-	return &Server{
-		Port:      port,
-		ProjectFS: projectFS,
-		builder:   builder,
-		watcher:   watcher,
-	}, nil
-}
-
-func (s *Server) Start() error {
-	err := s.builder.Build()
-	if err != nil {
-		// xxx don't actually fail here, update the state
-		return err
-	}
-	if err != nil {
 		return err
 	}
 
-	err = http.ListenAndServe(":8080", nil)
+	if err := watcher.Start(); err != nil {
+		return err
+	}
+	defer watcher.Stop()
+
+	go func() {
+		for t := range watcher.C {
+			log.Println("Change detected at", t)
+			if err := b.Build(); err != nil {
+				log.Println("Error during build:", err)
+			} else {
+				log.Println("Build completed successfully")
+			}
+		}
+	}()
+
+	// servce the content using http.FileServer
+
+	portStr := fmt.Sprintf(":%d", port)
+	err = http.ListenAndServe(portStr, nil)
 	if err != nil {
 		log.Fatal("Server error:", err)
 	}
