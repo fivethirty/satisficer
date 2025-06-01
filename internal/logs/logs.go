@@ -12,27 +12,26 @@ import (
 
 type Handler struct {
 	slog.Handler
-	mu  *sync.Mutex
-	out io.Writer
+	mu *sync.Mutex
+	w  io.Writer
 }
 
-func NewHandler(out io.Writer) *Handler {
-	if out == nil {
-		out = os.Stderr
+func NewHandler(w io.Writer) *Handler {
+	if w == nil {
+		w = os.Stderr
 	}
 	return &Handler{
-		Handler: slog.NewTextHandler(out, &slog.HandlerOptions{
+		Handler: slog.NewTextHandler(w, &slog.HandlerOptions{
 			Level:       slog.LevelInfo,
 			AddSource:   false,
 			ReplaceAttr: nil,
 		}),
-		mu:  &sync.Mutex{},
-		out: out,
+		mu: &sync.Mutex{},
+		w:  w,
 	}
 }
 
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
-
 	strs := []string{
 		fmt.Sprintf("[%s]", r.Level.String()),
 		r.Message,
@@ -53,8 +52,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	_, err := h.out.Write(b)
+	_, err := h.w.Write(b)
 
 	return err
-
 }

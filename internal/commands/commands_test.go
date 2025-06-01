@@ -28,9 +28,8 @@ var noOpCommands = func() map[string]*commands.Command {
 	return result
 }()
 
+// the Command tests can't be parallel because they modify the global slog and break everything
 func TestBadCommand(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name      string
 		args      []string
@@ -65,7 +64,6 @@ func TestBadCommand(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			buf := bytes.NewBuffer(nil)
 			err := commands.Execute(buf, test.args, noOpCommands)
 			if !errors.Is(err, commands.ErrBadCommand) {
@@ -88,8 +86,6 @@ func TestBadCommand(t *testing.T) {
 }
 
 func TestHelp(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name      string
 		args      []string
@@ -114,7 +110,6 @@ func TestHelp(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			allArgs := [][]string{test.args}
 			for _, arg := range []string{"-h", "-help", "--help"} {
 				args := append(test.args, arg)
@@ -125,6 +120,7 @@ func TestHelp(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			expectedUsageStr := string(expectedUsage)
 
 			for _, args := range allArgs {
 				buf := bytes.NewBuffer(nil)
@@ -132,10 +128,10 @@ func TestHelp(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected no error but got %v", err)
 				}
-				if buf.String() != string(expectedUsage) {
+				if buf.String() != expectedUsageStr {
 					t.Fatalf(
 						"expected usage output to be %q but got %q",
-						string(expectedUsage),
+						expectedUsageStr,
 						buf.String(),
 					)
 				}
