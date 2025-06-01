@@ -7,33 +7,36 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/fivethirty/satisficer/internal/builder"
 	"github.com/fivethirty/satisficer/internal/creator"
+	"github.com/fivethirty/satisficer/internal/logs"
 )
 
-type command struct {
-	usage   string
-	numArgs int
-	execute func(args []string) error
+type Command struct {
+	Usage   string
+	NumArgs int
+	Execute func(args []string) error
 }
 
 //go:embed usage
 var usageFS embed.FS
 
-var commands = map[string]*command{
+var Commands = map[string]*Command{
 	"create": {
-		usage:   "usage/create.txt",
-		numArgs: 1,
-		execute: func(args []string) error {
+		Usage:   "usage/create.txt",
+		NumArgs: 1,
+		Execute: func(args []string) error {
 			return creator.Create(args[0])
 		},
 	},
 	"build": {
-		usage:   "usage/build.txt",
-		numArgs: 2,
-		execute: func(args []string) error {
+		Usage:   "usage/build.txt",
+		NumArgs: 2,
+		Execute: func(args []string) error {
 			projectFS := os.DirFS(args[0])
 			layoutFS, err := fs.Sub(projectFS, "layout")
 			if err != nil {
@@ -60,47 +63,57 @@ const (
 	header        = "\n//===[ S A T I S F I C E R ]===\\\\\n\n"
 )
 
-func Execute(args []string) error {
+func Execute(w io.Writer, args []string, commands map[string]*Command) error {
+	setLogger(w)
 	mainFlagSet := flagSet(args[0])
-	mainUsage, err := usage(mainUsagePath)
+	mainUsage, err := usage(w, mainUsagePath)
 	if err != nil {
 		return err
 	}
-	if err := parse(mainFlagSet, args[1:], mainUsage); err != nil {
-		return err
+	err = parse(mainFlagSet, args[1:], mainUsage)
+	if err != nil {
+		return ignoreErrHelp(err)
 	}
 
 	subName := mainFlagSet.Arg(0)
 	if subName == "" {
 		return mainUsage(nil)
 	}
-	subFlagSet := flagSet(subName)
-
 	subCommand, ok := commands[subName]
 	if !ok {
-		return mainUsage(fmt.Errorf("unknown command: %s%w", subName, ErrBadCommand))
+		return mainUsage(fmt.Errorf("unknown command: %s", subName))
 	}
 
-	subUsage, err := usage(subCommand.usage)
+	subUsage, err := usage(w, subCommand.Usage)
 	if err != nil {
 		return err
 	}
 
-	if err := parse(subFlagSet, args[2:], subUsage); err != nil {
-		return err
+	subFlagSet := flagSet(subName)
+
+	err = parse(subFlagSet, mainFlagSet.Args()[1:], subUsage)
+	if err != nil {
+		return ignoreErrHelp(err)
 	}
-	if subFlagSet.NArg() != subCommand.numArgs {
+	numArgs := subFlagSet.NArg()
+	if numArgs != subCommand.NumArgs {
+		if numArgs == 0 {
+			return subUsage(nil)
+		}
 		return subUsage(
 			fmt.Errorf(
-				"expected %d arguments, got %d%w",
-				subCommand.numArgs,
+				"expected %d arguments, got %d",
+				subCommand.NumArgs,
 				subFlagSet.NArg(),
-				ErrBadCommand,
 			),
 		)
 	}
-	fmt.Print(header)
-	return subCommand.execute(subFlagSet.Args())
+	_, _ = fmt.Fprint(w, header)
+	return subCommand.Execute(subFlagSet.Args())
+}
+
+func setLogger(w io.Writer) {
+	slog.SetDefault(slog.New(logs.NewHandler(w)))
 }
 
 func flagSet(name string) *flag.FlagSet {
@@ -111,14 +124,18 @@ func flagSet(name string) *flag.FlagSet {
 
 type usageFunc func(error) error
 
-func usage(usagePath string) (usageFunc, error) {
+func usage(w io.Writer, usagePath string) (usageFunc, error) {
 	usage, err := usageFS.ReadFile(usagePath)
 	if err != nil {
 		return nil, err
 	}
+	usageStr := strings.TrimSpace(string(usage))
 	return func(err error) error {
-		fmt.Println(string(usage))
-		return err
+		_, _ = fmt.Fprintln(w, usageStr)
+		if err != nil {
+			return fmt.Errorf("%w%w", err, ErrBadCommand)
+		}
+		return nil
 	}, nil
 }
 
@@ -129,7 +146,14 @@ var ErrBadCommand = errors.New("")
 
 func parse(fs *flag.FlagSet, args []string, uf usageFunc) error {
 	if err := fs.Parse(args); err != nil {
-		return uf(fmt.Errorf("%w%w", ErrBadCommand, err))
+		return uf(err)
 	}
 	return nil
+}
+
+func ignoreErrHelp(err error) error {
+	if errors.Is(err, flag.ErrHelp) {
+		return nil
+	}
+	return err
 }

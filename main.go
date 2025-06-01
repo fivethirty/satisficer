@@ -9,8 +9,9 @@ import (
 )
 
 func main() {
-	if err := commands.Execute(os.Args); err != nil {
-		fmt.Printf("Error: %s\n", err.Error())
+	w := os.Stderr
+	if err := commands.Execute(w, os.Args, commands.Commands); err != nil {
+		_, _ = fmt.Fprintf(w, "\nError: %s\n", err.Error())
 		if errors.Is(err, commands.ErrBadCommand) {
 			os.Exit(2)
 		}
