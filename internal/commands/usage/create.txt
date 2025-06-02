@@ -1,4 +1,8 @@
-Usage: satisficer create <project-dir>
+Usage: satisficer create [options] <project-dir>
+
+Options:
+
+	-h, --help           Show this help message
 
 Creates a new project in the specified directory. The directory must not already
 exist.

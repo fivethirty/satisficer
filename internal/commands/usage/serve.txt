@@ -1,0 +1,8 @@
+Usage: satisficer serve [options] <project-dir>
+
+Options:
+
+	-p, --port <port>    Port to run the server on (default: 3000)
+	-h, --help           Show this help message
+
+Starts a local development server for the project located in <project-dir>.

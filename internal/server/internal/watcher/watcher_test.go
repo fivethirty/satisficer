@@ -82,7 +82,10 @@ func TestWatcher(t *testing.T) {
 			t.Parallel()
 
 			channel := make(chan time.Time)
-			defer close(channel)
+			t.Cleanup(func() {
+				close(channel)
+			})
+
 			w, err := watcher.New(test.t1State, channel)
 			if err != nil {
 				t.Fatal(err)
@@ -91,11 +94,15 @@ func TestWatcher(t *testing.T) {
 			if err := w.Start(); err != nil {
 				t.Fatal(err)
 			}
-			defer w.Stop()
+			t.Cleanup(func() {
+				w.Stop()
+			})
 
 			w.FSys = test.t2State
 
 			channel <- t1
+
+			time.Sleep(100 * time.Millisecond)
 
 			select {
 			case eventTime := <-w.C():

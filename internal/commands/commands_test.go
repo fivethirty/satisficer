@@ -106,6 +106,11 @@ func TestHelp(t *testing.T) {
 			args:      []string{"satisficer", "build"},
 			usagePath: "usage/build.txt",
 		},
+		{
+			name:      "serve",
+			args:      []string{"satisficer", "serve"},
+			usagePath: "usage/serve.txt",
+		},
 	}
 
 	for _, test := range tests {

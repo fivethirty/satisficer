@@ -1,4 +1,8 @@
-Usage: satisficer build <project-dir> <build-dir>
+Usage: satisficer build [options] <project-dir> <build-dir>
+
+Options:
+
+	-h, --help           Show this help message
 
 Builds the project located in <project-dir> in <build-dir>. This command will
 not delete any existing files in <build-dir>. Ensure that <build-dir> is empty

@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+type state int
+
+const (
+	created state = iota
+	running
+	stopped
+)
+
 type Watcher struct {
 	FSys       fs.FS
 	c          chan time.Time
@@ -15,8 +23,8 @@ type Watcher struct {
 	done       chan bool
 	previous   map[string]time.Time
 	current    map[string]time.Time
-	isRunning  bool
-	startMutex sync.Mutex
+	state      state
+	stateMutex sync.Mutex
 }
 
 func New(fsys fs.FS, trigger <-chan time.Time) (*Watcher, error) {
@@ -25,6 +33,7 @@ func New(fsys fs.FS, trigger <-chan time.Time) (*Watcher, error) {
 		trigger:  trigger,
 		previous: make(map[string]time.Time),
 		current:  make(map[string]time.Time),
+		state:    created,
 	}
 	if err := w.update(); err != nil {
 		return nil, fmt.Errorf("failed to initialize watcher: %w", err)
@@ -37,12 +46,13 @@ func (w *Watcher) C() <-chan time.Time {
 }
 
 func (w *Watcher) Start() error {
-	w.startMutex.Lock()
-	defer w.startMutex.Unlock()
-	if w.isRunning {
-		return fmt.Errorf("watcher already started")
+	w.stateMutex.Lock()
+	defer w.stateMutex.Unlock()
+	if w.state != created {
+		return fmt.Errorf("watcher has already been started")
 	}
-	w.isRunning = true
+	w.state = running
+
 	w.c = make(chan time.Time)
 	w.done = make(chan bool)
 
@@ -67,10 +77,14 @@ func (w *Watcher) Start() error {
 }
 
 func (w *Watcher) Stop() {
+	w.stateMutex.Lock()
+	defer w.stateMutex.Unlock()
+	if w.state != running {
+		return
+	}
 	w.done <- true
 	close(w.done)
 	close(w.c)
-	w.isRunning = false
 }
 
 func (w *Watcher) update() error {

@@ -13,6 +13,7 @@ import (
 	"github.com/fivethirty/satisficer/internal/builder"
 	"github.com/fivethirty/satisficer/internal/creator"
 	"github.com/fivethirty/satisficer/internal/logs"
+	"github.com/fivethirty/satisficer/internal/server"
 )
 
 type Command struct {
@@ -44,6 +45,15 @@ var Commands = map[string]*Command{
 			}
 
 			return b.Build(buildDir)
+		},
+	},
+	"serve": {
+		Usage:   "usage/serve.txt",
+		NumArgs: 1,
+		Execute: func(args []string) error {
+			projectFS := os.DirFS(args[0])
+			port := uint16(8080) // Default port, can be changed later
+			return server.Serve(projectFS, port)
 		},
 	},
 }

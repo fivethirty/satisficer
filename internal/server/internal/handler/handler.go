@@ -5,15 +5,22 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 type Handler struct {
-	atomicSuccessHandler atomic.Value
-	currentError         error
 	watcher              Watcher
 	builder              Builder
+	done                 chan bool
+	isRunning            bool
+	stopMutex            sync.Mutex
+	atomicSuccessHandler atomic.Value
+	buildDirBase         string
+	activeBuildDir       string
+	buildDirs            map[string]struct{}
+	currentError         error
 }
 
 type Watcher interface {
@@ -26,20 +33,24 @@ type Builder interface {
 	Build(buildDir string) error
 }
 
-func New(w Watcher, b Builder) (*Handler, error) {
+func New(w Watcher, b Builder, buildDirBase string) (*Handler, error) {
 	h := &Handler{
-		atomicSuccessHandler: atomic.Value{},
 		watcher:              w,
 		builder:              b,
+		done:                 make(chan bool),
+		isRunning:            true,
+		stopMutex:            sync.Mutex{},
+		atomicSuccessHandler: atomic.Value{},
+		buildDirBase:         buildDirBase,
+		activeBuildDir:       "",
+		buildDirs:            make(map[string]struct{}),
+		currentError:         nil,
 	}
-	buildDir, err := h.build()
-	if err != nil {
-		return nil, fmt.Errorf("could not build project: %w", err)
-	}
+	h.rotateSuccessHandler()
 	if err := h.watcher.Start(); err != nil {
 		return nil, fmt.Errorf("could not start watcher: %w", err)
 	}
-	go h.watch(buildDir)
+	go h.watch()
 	return h, nil
 }
 
@@ -62,40 +73,60 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sh.ServeHTTP(w, r)
 }
 
-func (h *Handler) watch(prevBuildDir string) {
-	// defer is not guarenteed to happen here need to think of something better
-	defer func() {
-		fmt.Println("Ending watcher...")
-		h.watcher.Stop()
-		_ = os.RemoveAll(prevBuildDir)
-	}()
+func (h *Handler) Stop() {
+	h.stopMutex.Lock()
+	defer h.stopMutex.Unlock()
+	if !h.isRunning {
+		return
+	}
+	h.isRunning = false
+	h.done <- true
+	close(h.done)
+}
 
-	for t := range h.watcher.C() {
-		slog.Info("Change detected", "time", t)
-		buildDir, err := h.build()
-		if err != nil {
-			slog.Error("Build failed", "error", err)
-			h.currentError = fmt.Errorf("build failed: %w", err)
-			continue
+func (h *Handler) watch() {
+	for {
+		select {
+		case <-h.done:
+			return
+		case t := <-h.watcher.C():
+			slog.Info("Change detected", "time", t)
+			h.rotateSuccessHandler()
 		}
-		successHandler := http.StripPrefix(buildDir, http.FileServer(http.Dir(buildDir)))
-		h.atomicSuccessHandler.Store(successHandler)
-		h.currentError = nil
-		if err := os.RemoveAll(prevBuildDir); err != nil {
-			slog.Warn("Cold not remove previous build directory", "error", err)
-		}
-		prevBuildDir = buildDir
 	}
 }
 
-func (h *Handler) build() (string, error) {
-	buildDir, err := os.MkdirTemp("", "satisficer-server-build-")
+func (h *Handler) rotateSuccessHandler() {
+	if err := h.buildAndCleanup(); err != nil {
+		slog.Error("Build failed", "error", err)
+		h.currentError = err
+		return
+	}
+	h.atomicSuccessHandler.Store(http.FileServer(http.Dir(h.activeBuildDir)))
+	h.currentError = nil
+}
+
+func (h *Handler) buildAndCleanup() error {
+	buildDir, err := os.MkdirTemp(h.buildDirBase, "satisficer-server-build-")
 	if err != nil {
-		return "", fmt.Errorf("error creating build directory: %w", err)
+		return fmt.Errorf("error creating build directory: %w", err)
 	}
+	h.activeBuildDir = buildDir
+	h.buildDirs[buildDir] = struct{}{}
+
+	for dir := range h.buildDirs {
+		if dir == buildDir {
+			continue
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			slog.Warn("Could not remove old build directory", "dir", dir, "error", err)
+		} else {
+			delete(h.buildDirs, dir)
+		}
+	}
+
 	if err := h.builder.Build(buildDir); err != nil {
-		_ = os.RemoveAll(buildDir)
-		return "", fmt.Errorf("error building site: %w", err)
+		return fmt.Errorf("error building site: %w", err)
 	}
-	return buildDir, nil
+	return nil
 }
