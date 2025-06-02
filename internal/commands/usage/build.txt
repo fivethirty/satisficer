@@ -1,4 +1,5 @@
-Usage: satisficer build <project-dir> <output-dir>
+Usage: satisficer build <project-dir> <build-dir>
 
-Builds the project located in the specified directory and outputs the generated
-files to the specified output directory.
+Builds the project located in <project-dir> in <build-dir>. This command will
+not delete any existing files in <build-dir>. Ensure that <build-dir> is empty
+before running this command.

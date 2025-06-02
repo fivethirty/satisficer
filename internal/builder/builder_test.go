@@ -175,11 +175,11 @@ func TestGenerate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
 			pfs := projectFS(t, test.layoutFS, test.contentFS)
-			b, err := builder.New(pfs, dir)
+			b, err := builder.New(pfs)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = b.Build()
+			err = b.Build(dir)
 			if err != nil {
 				if !test.wantError {
 					t.Fatalf("unexpected error: %v", err)
@@ -284,11 +284,11 @@ func TestPageTemplateRendering(t *testing.T) {
 				mdPath: &test.content,
 			}
 			pfs := projectFS(t, layoutFS, contentFS)
-			b, err := builder.New(pfs, dir)
+			b, err := builder.New(pfs)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = b.Build()
+			err = b.Build(dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -428,11 +428,11 @@ func TestIndexTemplateRendering(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
 			pfs := projectFS(t, layoutFS, test.contentFS)
-			g, err := builder.New(pfs, dir)
+			g, err := builder.New(pfs)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = g.Build()
+			err = g.Build(dir)
 			if err != nil {
 				t.Fatal(err)
 			}

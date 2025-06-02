@@ -37,13 +37,13 @@ var Commands = map[string]*Command{
 		NumArgs: 2,
 		Execute: func(args []string) error {
 			projectFS := os.DirFS(args[0])
-			outputDir := args[1]
-			b, err := builder.New(projectFS, outputDir)
+			buildDir := args[1]
+			b, err := builder.New(projectFS)
 			if err != nil {
 				return err
 			}
 
-			return b.Build()
+			return b.Build(buildDir)
 		},
 	},
 }
