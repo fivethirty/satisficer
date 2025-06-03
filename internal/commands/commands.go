@@ -58,10 +58,7 @@ var Commands = map[string]*Command{
 	},
 }
 
-const (
-	mainUsagePath = "usage/main.txt"
-	header        = "\n//===[ S A T I S F I C E R ]===\\\\\n\n"
-)
+const mainUsagePath = "usage/main.txt"
 
 func Execute(w io.Writer, args []string, commands map[string]*Command) error {
 	setLogger(w)
@@ -108,7 +105,6 @@ func Execute(w io.Writer, args []string, commands map[string]*Command) error {
 			),
 		)
 	}
-	_, _ = fmt.Fprint(w, header)
 	return subCommand.Execute(subFlagSet.Args())
 }
 
