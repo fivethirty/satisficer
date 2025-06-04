@@ -1,95 +1,67 @@
 package watcher
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"reflect"
-	"sync"
 	"time"
 )
 
-type state int
-
-const (
-	created state = iota
-	running
-	stopped
-)
-
 type Watcher struct {
-	FSys       fs.FS
-	c          chan time.Time
-	trigger    <-chan time.Time
-	done       chan bool
-	previous   map[string]time.Time
-	current    map[string]time.Time
-	state      state
-	stateMutex sync.Mutex
+	FSys          fs.FS
+	changedCh     chan time.Time
+	previousFiles map[string]time.Time
+	currentFiles  map[string]time.Time
 }
 
-func New(fsys fs.FS, trigger <-chan time.Time) (*Watcher, error) {
+func Start(ctx context.Context, fsys fs.FS, triggerCh <-chan time.Time) (*Watcher, error) {
 	w := Watcher{
-		FSys:     fsys,
-		trigger:  trigger,
-		previous: make(map[string]time.Time),
-		current:  make(map[string]time.Time),
-		state:    created,
+		FSys:          fsys,
+		changedCh:     make(chan time.Time, 1),
+		previousFiles: make(map[string]time.Time),
+		currentFiles:  make(map[string]time.Time),
 	}
 	if err := w.update(); err != nil {
 		return nil, fmt.Errorf("failed to initialize watcher: %w", err)
 	}
-	return &w, nil
-}
-
-func (w *Watcher) C() <-chan time.Time {
-	return w.c
-}
-
-func (w *Watcher) Start() error {
-	w.stateMutex.Lock()
-	defer w.stateMutex.Unlock()
-	if w.state != created {
-		return fmt.Errorf("watcher has already been started")
-	}
-	w.state = running
-
-	w.c = make(chan time.Time)
-	w.done = make(chan bool)
 
 	go func() {
 		for {
 			select {
-			case <-w.done:
+			case <-ctx.Done():
+				close(w.changedCh)
 				return
-			case t := <-w.trigger:
-				changed, err := w.isChanged()
+			case t := <-triggerCh:
+				isChanged, err := w.isChanged()
 				if err != nil {
 					return
 				}
-				if !changed {
+				if !isChanged {
 					continue
 				}
-				w.c <- t
+				w.publishChanged(t)
 			}
 		}
 	}()
-	return nil
+
+	return &w, nil
 }
 
-func (w *Watcher) Stop() {
-	w.stateMutex.Lock()
-	defer w.stateMutex.Unlock()
-	if w.state != running {
-		return
+func (w *Watcher) ChangedCh() <-chan time.Time {
+	return w.changedCh
+}
+
+func (w *Watcher) publishChanged(t time.Time) {
+	select {
+	case w.changedCh <- t:
+	default:
 	}
-	w.done <- true
-	close(w.done)
-	close(w.c)
 }
 
 func (w *Watcher) update() error {
-	w.previous = w.current
-	w.current = make(map[string]time.Time)
+	w.previousFiles = w.currentFiles
+	w.currentFiles = make(map[string]time.Time)
 	return fs.WalkDir(w.FSys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -102,7 +74,7 @@ func (w *Watcher) update() error {
 		if err != nil {
 			return err
 		}
-		w.current[path] = info.ModTime()
+		w.currentFiles[path] = info.ModTime()
 		return nil
 	})
 }
@@ -111,5 +83,5 @@ func (w *Watcher) isChanged() (bool, error) {
 	if err := w.update(); err != nil {
 		return false, err
 	}
-	return !reflect.DeepEqual(w.previous, w.current), nil
+	return !reflect.DeepEqual(w.previousFiles, w.currentFiles), nil
 }

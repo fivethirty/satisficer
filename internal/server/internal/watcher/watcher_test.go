@@ -86,33 +86,24 @@ func TestWatcher(t *testing.T) {
 				close(channel)
 			})
 
-			w, err := watcher.New(test.t1State, channel)
+			w, err := watcher.Start(t.Context(), test.t1State, channel)
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			if err := w.Start(); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() {
-				w.Stop()
-			})
 
 			w.FSys = test.t2State
 
 			channel <- t1
 
-			time.Sleep(100 * time.Millisecond)
-
 			select {
-			case eventTime := <-w.C():
+			case eventTime := <-w.ChangedCh():
 				if !test.expectEvent {
 					t.Fatal("expected no event, but got one")
 				}
 				if eventTime != t1 {
 					t.Fatalf("expected event time %v, got %v", t1, eventTime)
 				}
-			default:
+			case <-time.After(100 * time.Millisecond):
 				if test.expectEvent {
 					t.Fatal("expected an event, but got none")
 				}
