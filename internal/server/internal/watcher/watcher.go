@@ -10,7 +10,7 @@ import (
 
 type Watcher struct {
 	FSys          fs.FS
-	changedCh     chan time.Time
+	ch            chan time.Time
 	previousFiles map[string]time.Time
 	currentFiles  map[string]time.Time
 }
@@ -18,7 +18,7 @@ type Watcher struct {
 func Start(ctx context.Context, fsys fs.FS, triggerCh <-chan time.Time) (*Watcher, error) {
 	w := Watcher{
 		FSys:          fsys,
-		changedCh:     make(chan time.Time, 1),
+		ch:            make(chan time.Time, 1),
 		previousFiles: make(map[string]time.Time),
 		currentFiles:  make(map[string]time.Time),
 	}
@@ -30,7 +30,7 @@ func Start(ctx context.Context, fsys fs.FS, triggerCh <-chan time.Time) (*Watche
 		for {
 			select {
 			case <-ctx.Done():
-				close(w.changedCh)
+				close(w.ch)
 				return
 			case t := <-triggerCh:
 				isChanged, err := w.isChanged()
@@ -40,7 +40,7 @@ func Start(ctx context.Context, fsys fs.FS, triggerCh <-chan time.Time) (*Watche
 				if !isChanged {
 					continue
 				}
-				w.publishChanged(t)
+				w.publish(t)
 			}
 		}
 	}()
@@ -48,13 +48,13 @@ func Start(ctx context.Context, fsys fs.FS, triggerCh <-chan time.Time) (*Watche
 	return &w, nil
 }
 
-func (w *Watcher) ChangedCh() <-chan time.Time {
-	return w.changedCh
+func (w *Watcher) Ch() <-chan time.Time {
+	return w.ch
 }
 
-func (w *Watcher) publishChanged(t time.Time) {
+func (w *Watcher) publish(t time.Time) {
 	select {
-	case w.changedCh <- t:
+	case w.ch <- t:
 	default:
 	}
 }

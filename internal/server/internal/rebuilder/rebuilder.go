@@ -1,105 +1,74 @@
 package rebuilder
 
 import (
-	"fmt"
+	"context"
 	"io/fs"
 	"log/slog"
 	"os"
-	"sync"
 	"sync/atomic"
 	"time"
 )
 
 type Watcher interface {
-	Start() error
-	Stop()
-	ChangedCh() <-chan time.Time
+	Ch() <-chan time.Time
 }
 
 type Builder interface {
 	Build(buildDir string) error
 }
 
-type state int
-
-const (
-	created state = iota
-	running
-	stopped
-)
-
 type Rebuilder struct {
-	watcher    Watcher
-	builder    Builder
-	atomicFS   atomic.Value
-	doneCh     chan bool
-	rebuiltCh  chan error
-	state      state
-	stateMutex sync.Mutex
-	baseDir    string
-	buildDir   string
+	BuildDir string
+	watcher  Watcher
+	builder  Builder
+	atomicFS atomic.Value
+	ch       chan error
+	baseDir  string
 }
 
 func New(w Watcher, b Builder, baseDir string) Rebuilder {
 	return Rebuilder{
-		watcher:    w,
-		builder:    b,
-		doneCh:     make(chan bool),
-		rebuiltCh:  make(chan error, 1),
-		state:      created,
-		stateMutex: sync.Mutex{},
-		baseDir:    baseDir,
+		watcher: w,
+		builder: b,
+		ch:      make(chan error, 1),
+		baseDir: baseDir,
 	}
 }
 
-func (r *Rebuilder) Start() error {
-	r.stateMutex.Lock()
-	defer r.stateMutex.Unlock()
-	if r.state != created {
-		return fmt.Errorf("rebuilder has already been started")
+func Start(ctx context.Context, w Watcher, b Builder, baseDir string) (*Rebuilder, error) {
+	r := Rebuilder{
+		watcher: w,
+		builder: b,
+		ch:      make(chan error, 1),
+		baseDir: baseDir,
 	}
-	r.state = running
-	if err := r.watcher.Start(); err != nil {
-		return fmt.Errorf("could not start watcher: %w", err)
-	}
-	r.rebuiltCh <- r.rebuild()
-	go r.watch()
-	return nil
-}
-
-func (r *Rebuilder) Stop() {
-	r.stateMutex.Lock()
-	defer r.stateMutex.Unlock()
-	if r.state != running {
-		return
-	}
-	r.state = stopped
-	r.doneCh <- true
-	close(r.doneCh)
-	r.watcher.Stop()
-
-	if err := os.RemoveAll(r.baseDir); err != nil {
-		slog.Warn("failed to remove base rebuilder directory", "path", r.baseDir, "error", err)
-	}
-}
-
-func (r *Rebuilder) RebuiltCh() <-chan error {
-	return r.rebuiltCh
-}
-
-func (r *Rebuilder) FS() fs.FS {
-	return r.atomicFS.Load().(fs.FS)
-}
-
-func (r *Rebuilder) watch() {
-	for {
-		select {
-		case <-r.doneCh:
-			return
-		case <-r.watcher.ChangedCh():
-			r.rebuiltCh <- r.rebuild()
+	r.publish()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-r.watcher.Ch():
+				r.publish()
+			}
 		}
+	}()
+	return &r, nil
+}
+
+func (r *Rebuilder) publish() {
+	select {
+	case r.ch <- r.rebuild():
+	default:
 	}
+}
+
+func (r *Rebuilder) Ch() <-chan error {
+	return r.ch
+}
+
+func (r *Rebuilder) Latest() fs.FS {
+	return r.atomicFS.Load().(fs.FS)
 }
 
 func (r *Rebuilder) rebuild() error {
@@ -108,12 +77,17 @@ func (r *Rebuilder) rebuild() error {
 		return err
 	}
 
-	resultErr := r.builder.Build(dir)
-
-	if err := os.RemoveAll(r.buildDir); err != nil {
-		slog.Warn("failed to remove old build directory", "path", r.buildDir, "error", err)
+	toRemove := dir
+	buildErr := r.builder.Build(dir)
+	if buildErr == nil {
+		r.atomicFS.Store(os.DirFS(dir))
+		toRemove = r.BuildDir
+		r.BuildDir = dir
 	}
 
-	r.buildDir = dir
-	return resultErr
+	if err := os.RemoveAll(toRemove); err != nil {
+		slog.Warn("failed to remove build directory", "path", toRemove, "error", err)
+	}
+
+	return buildErr
 }

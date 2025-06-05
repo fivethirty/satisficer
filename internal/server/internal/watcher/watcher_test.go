@@ -96,7 +96,7 @@ func TestWatcher(t *testing.T) {
 			channel <- t1
 
 			select {
-			case eventTime := <-w.ChangedCh():
+			case eventTime := <-w.Ch():
 				if !test.expectEvent {
 					t.Fatal("expected no event, but got one")
 				}
