@@ -1,64 +1,145 @@
 package handler
 
 import (
-	"fmt"
+	"context"
+	"encoding/json"
+	"log/slog"
 	"net/http"
+	"os"
 	"sync/atomic"
 	"time"
 )
 
-type FileServerProvider interface {
-	FileServer() http.Handler
-	// xxx rename all these to something useful
-	C() <-chan time.Time
+type Watcher interface {
+	Ch() <-chan time.Time
 }
 
-type Handler stuct {
-	atomicHandler  atomic.Value
+type Builder interface {
+	Build(buildDir string) error
 }
-func (r *Rebuilder) FileServer() http.Handler {
-	if v := r.atomicHandler.Load(); v != nil {
-		return v.(http.Handler)
+
+type build struct {
+	dir        string
+	fileServer http.Handler
+	err        error
+}
+
+type Handler struct {
+	watcher Watcher
+	builder Builder
+	baseDir string
+	build   atomic.Value
+	buildCh chan time.Time
+	mux     *http.ServeMux
+}
+
+func Start(ctx context.Context, w Watcher, b Builder, baseDir string) (*Handler, error) {
+	h := Handler{
+		watcher: w,
+		builder: b,
+		buildCh: make(chan time.Time, 1),
+		baseDir: baseDir,
 	}
-	return nil
-}
-
-func (r *Rebuilder) rotateHandler() error {
-	if err := r.buildAndCleanup(); err != nil {
-		return err
-	}
-	r.atomicHandler.Store(http.FileServer(http.Dir(r.activeBuildDir)))
-	return nil
-}
-
-func handler() (http.Handler, error) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /_/events", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Connection", "keep-alive")
+	h.rebuild()
+	go func() {
 		for {
-			// consume changed events and spit them out as server-sent events
-			return
+			select {
+			case <-ctx.Done():
+				return
+			case <-h.watcher.Ch():
+				h.rebuild()
+				h.publish()
+			}
 		}
-	})
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if h.currentError != nil {
-			msg := fmt.Sprintf(
-				"Error building site, please see terminal logs for more info: %v",
-				h.currentError,
-			)
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
-		}
+	}()
 
-		successHandler := h.atomicSuccessHandler.Load()
-		if successHandler == nil {
-			http.Error(w, "Site is not ready yet", http.StatusServiceUnavailable)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /_/events", h.eventHandler)
+	mux.HandleFunc("GET /", h.files)
+	h.mux = mux
+
+	return &h, nil
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
+}
+
+type Event struct {
+	Event string    `json:"event"`
+	Time  time.Time `json:"time"`
+}
+
+func (h *Handler) eventHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	for {
+		select {
+		case t := <-h.buildCh:
+			e := Event{
+				Event: "build",
+				Time:  t,
+			}
+			if err := json.NewEncoder(w).Encode(e); err != nil {
+				http.Error(w, "failed to encode event", http.StatusInternalServerError)
+				continue
+			}
+			w.(http.Flusher).Flush()
+		case <-r.Context().Done():
 			return
 		}
+	}
+}
 
-		successHandler.(http.Handler).ServeHTTP(w, r)
-	})
-	return mux, nil
+func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
+	build, ok := h.build.Load().(build)
+	if !ok {
+		http.Error(w, "not built yet", http.StatusInternalServerError)
+		return
+	}
+	if build.err != nil {
+		http.Error(w, build.err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// xxx "serve" http into a string then wrap? can use the built in html lib
+	build.fileServer.ServeHTTP(w, r)
+}
+
+func (h *Handler) publish() {
+	select {
+	case h.buildCh <- time.Now():
+	default:
+	}
+}
+
+func (h *Handler) rebuild() {
+	oldBuild, ok := h.build.Load().(build)
+	if ok {
+		oldDir := oldBuild.dir
+		defer func() {
+			if oldDir == "" {
+				return
+			}
+			if err := os.RemoveAll(oldDir); err != nil {
+				slog.Warn("failed to remove build directory", "path", oldDir, "error", err)
+			}
+		}()
+	}
+
+	dir, err := os.MkdirTemp(h.baseDir, "satisficer-server-build-")
+	if err != nil {
+		h.build.Store(build{err: err})
+		return
+	}
+
+	h.build.Store(
+		build{
+			dir:        dir,
+			err:        h.builder.Build(dir),
+			fileServer: http.FileServer(http.Dir(dir)),
+		},
+	)
+
 }

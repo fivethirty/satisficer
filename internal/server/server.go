@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -17,8 +18,10 @@ func Serve(projectFS fs.FS, port uint16) error {
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	ticker := time.NewTicker(1 * time.Second)
-	w, err := watcher.New(projectFS, ticker.C)
+	w, err := watcher.Start(ctx, projectFS, ticker.C)
 	if err != nil {
 		return err
 	}
@@ -26,7 +29,7 @@ func Serve(projectFS fs.FS, port uint16) error {
 	if err != nil {
 		return err
 	}
-	h, err := handler.New(w, b, dir)
+	h, err := handler.Start(ctx, w, b, dir)
 	if err != nil {
 		return err
 	}

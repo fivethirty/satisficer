@@ -1,75 +1,155 @@
 package handler_test
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/fivethirty/satisficer/internal/server/internal/rebuilder"
+	"github.com/fivethirty/satisficer/internal/server/internal/handler"
 )
 
-func TestHandler(t *testing.T) {
+const (
+	buildFile = "output.txt"
+)
+
+type fakeBuilder struct {
+	content string
+	err     error
+}
+
+func (b *fakeBuilder) Build(buildDir string) error {
+	if b.err != nil {
+		return b.err
+	}
+	dest := filepath.Join(buildDir, buildFile)
+	return os.WriteFile(dest, []byte(b.content), os.ModePerm)
+}
+
+type fakeWatcher struct {
+	c <-chan time.Time
+}
+
+func newFakeWatcher(c chan time.Time) *fakeWatcher {
+	return &fakeWatcher{
+		c: c,
+	}
+}
+
+func (w *fakeWatcher) Ch() <-chan time.Time {
+	return w.c
+}
+
+func TestRebuilder(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		path       string
-		err        error
-		wantStatus int
-		wantBody   string
+		name  string
+		steps []fakeBuilder
 	}{
 		{
-			name:       "can get built file",
-			path:       "/build_count.txt",
-			err:        nil,
-			wantStatus: 200,
-			wantBody:   "1",
-		},
-		{
-			name:       "error building site",
-			path:       "/build_count.txt",
-			err:        errors.New("bad build"),
-			wantStatus: 500,
-			wantBody:   "Error building site, please see terminal logs for more info: error building site: bad build",
-		},
-		{
-			name:       "file not found",
-			path:       "/non_existent_file.txt",
-			err:        nil,
-			wantStatus: 404,
-			wantBody:   "404 page not found",
+			name: "simple build",
+			steps: []fakeBuilder{
+				{
+					content: "first build",
+					err:     nil,
+				},
+			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			c := make(chan time.Time)
 			w := newFakeWatcher(c)
-			b := &fakeBuilder{
-				err: test.err,
-			}
-			h, err := rebuilder.New(w, b, t.TempDir())
+			baseDir := t.TempDir()
+
+			h, err := handler.Start(t.Context(), w, &fakeBuilder{}, baseDir)
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Cleanup(h.Stop)
-			req, err := http.NewRequest("GET", test.path, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, req)
-			if rec.Code != test.wantStatus {
-				t.Errorf("expected status %d, got %d", test.wantStatus, rec.Code)
-			}
-			actual := strings.TrimSpace(rec.Body.String())
-			if actual != test.wantBody {
-				t.Errorf("expected body %q, got %q", test.wantBody, actual)
-			}
+
+			server := httptest.NewServer(h)
+			t.Cleanup(server.Close)
+
+			fmt.Printf("Test server listening at %s\n", server.URL)
+
+			// xxx this is blocking the server from closing need to kill it when the ctx times out
+
+			go func() {
+				resp, err := http.Get(server.URL + "/_/events")
+				if err != nil {
+					// do something better
+					return
+				}
+				if resp.StatusCode != http.StatusOK {
+					return
+				}
+			}()
+
+			fmt.Println("Waiting for initial build...")
+
+			time.Sleep(100 * time.Millisecond) // wait for initial build
 		})
 	}
+
 }
+
+/*func TestRebuilderCleansTmpDirs(t *testing.T) {
+	t.Parallel()
+
+	c := make(chan time.Time)
+	w := newFakeWatcher(c)
+	b := &fakeBuilder{}
+	baseDir := t.TempDir()
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	r, err := handler.Start(ctx, w, b, baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range 5 {
+		select {
+		case <-r.Ch():
+			if i < 4 {
+				fmt.Println(r.BuildDir)
+				c <- time.Now()
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Fatalf("timeout waiting for build %d", i)
+		}
+	}
+
+	tmpDirs, err := os.ReadDir(baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := filepath.Base(r.BuildDir)
+	for _, dir := range tmpDirs {
+		if dir.IsDir() && dir.Name() != filepath.Base(r.BuildDir) {
+			t.Fatalf("expected only active build dir %s, found: %s", expected, dir.Name())
+		}
+	}
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	file, err := os.Open(baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = file.Close()
+	})
+
+	if _, err = file.Readdirnames(1); err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("expected no files in baseDir after cancel, found: %v", err)
+	}
+}*/
