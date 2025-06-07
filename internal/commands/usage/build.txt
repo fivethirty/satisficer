@@ -6,4 +6,4 @@ Options:
 
 Builds the project located in <project-dir> in <build-dir>. This command will
 not delete any existing files in <build-dir>. Ensure that <build-dir> is empty
-before running this command.
+before running.
