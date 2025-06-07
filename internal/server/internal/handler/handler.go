@@ -2,7 +2,7 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,6 +31,7 @@ type Handler struct {
 	build   atomic.Value
 	buildCh chan time.Time
 	mux     *http.ServeMux
+	ctx     context.Context
 }
 
 func Start(ctx context.Context, w Watcher, b Builder, baseDir string) (*Handler, error) {
@@ -39,22 +40,14 @@ func Start(ctx context.Context, w Watcher, b Builder, baseDir string) (*Handler,
 		builder: b,
 		buildCh: make(chan time.Time, 1),
 		baseDir: baseDir,
+		ctx:     ctx,
 	}
+
 	h.rebuild()
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-h.watcher.Ch():
-				h.rebuild()
-				h.publish()
-			}
-		}
-	}()
+	h.watch()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /_/events", h.eventHandler)
+	mux.HandleFunc("GET /_/events", h.events)
 	mux.HandleFunc("GET /", h.files)
 	h.mux = mux
 
@@ -65,28 +58,44 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
 
-type Event struct {
-	Event string    `json:"event"`
-	Time  time.Time `json:"time"`
+func (h *Handler) watch() {
+	go func() {
+		for {
+			select {
+			case <-h.ctx.Done():
+				if err := os.RemoveAll(h.baseDir); err != nil {
+					slog.Warn("failed to remove base directory", "path", h.baseDir, "error", err)
+				}
+				return
+			case <-h.watcher.Ch():
+				h.rebuild()
+				h.publish()
+			}
+		}
+	}()
 }
 
-func (h *Handler) eventHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
 	for {
 		select {
-		case t := <-h.buildCh:
-			e := Event{
-				Event: "build",
-				Time:  t,
+		case <-h.buildCh:
+			_, err := fmt.Fprint(w, "event: rebuild\n\n")
+			if err != nil {
+				http.Error(w, "failed to write event", http.StatusInternalServerError)
+				return
 			}
-			if err := json.NewEncoder(w).Encode(e); err != nil {
-				http.Error(w, "failed to encode event", http.StatusInternalServerError)
-				continue
-			}
-			w.(http.Flusher).Flush()
+			flusher.Flush()
 		case <-r.Context().Done():
+			return
+		case <-h.ctx.Done():
 			return
 		}
 	}

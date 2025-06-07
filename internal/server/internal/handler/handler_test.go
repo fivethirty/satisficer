@@ -1,7 +1,10 @@
 package handler_test
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -43,7 +46,7 @@ func (w *fakeWatcher) Ch() <-chan time.Time {
 	return w.c
 }
 
-func TestRebuilder(t *testing.T) {
+func TestHandler(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -51,12 +54,26 @@ func TestRebuilder(t *testing.T) {
 		steps []fakeBuilder
 	}{
 		{
-			name: "simple build",
+			name:  "initial build only",
+			steps: []fakeBuilder{},
+		},
+		{
+			name: "many builds",
 			steps: []fakeBuilder{
-				{
-					content: "first build",
-					err:     nil,
-				},
+				{content: "build 1"},
+			},
+		},
+		{
+			name: "build with error",
+			steps: []fakeBuilder{
+				{err: fmt.Errorf("build error")},
+			},
+		},
+		{
+			name: "recovery after error",
+			steps: []fakeBuilder{
+				{err: fmt.Errorf("build error")},
+				{content: "build 2"},
 			},
 		},
 	}
@@ -65,91 +82,147 @@ func TestRebuilder(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := make(chan time.Time)
-			w := newFakeWatcher(c)
+			watcherCh := make(chan time.Time)
+			w := newFakeWatcher(watcherCh)
 			baseDir := t.TempDir()
+			fb := &fakeBuilder{
+				content: "initial build",
+			}
 
-			h, err := handler.Start(t.Context(), w, &fakeBuilder{}, baseDir)
+			h, err := handler.Start(t.Context(), w, fb, baseDir)
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			server := httptest.NewServer(h)
 			t.Cleanup(server.Close)
+			testRequest(t, httptest.NewServer(h), fb)
 
-			fmt.Printf("Test server listening at %s\n", server.URL)
+			sCh := sseCh(t, server)
 
-			// xxx this is blocking the server from closing need to kill it when the ctx times out
-
-			go func() {
-				resp, err := http.Get(server.URL + "/_/events")
-				if err != nil {
-					// do something better
-					return
+			for _, step := range test.steps {
+				*fb = step
+				watcherCh <- time.Now()
+				select {
+				case err := <-sCh:
+					if err != nil {
+						t.Fatalf("error from SSE client: %v", err)
+					}
+					testRequest(t, server, fb)
+				case <-time.After(100 * time.Millisecond):
+					t.Fatalf("timeout waiting for rebuild event")
 				}
-				if resp.StatusCode != http.StatusOK {
-					return
-				}
-			}()
+			}
 
-			fmt.Println("Waiting for initial build...")
-
-			time.Sleep(100 * time.Millisecond) // wait for initial build
 		})
 	}
-
 }
 
-/*func TestRebuilderCleansTmpDirs(t *testing.T) {
+func testRequest(t *testing.T, server *httptest.Server, fb *fakeBuilder) {
+	t.Helper()
+	resp, err := http.Get(server.URL + "/" + buildFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if fb.err != nil {
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Fatalf("expected status InternalServerError, got %v", resp.StatusCode)
+		}
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status OK, got %v", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body: %v", err)
+	}
+	if string(body) != fb.content {
+		t.Fatalf("expected build content '%s', got '%s'", fb.content, string(body))
+	}
+}
+
+func sseCh(t *testing.T, server *httptest.Server) <-chan error {
+	t.Helper()
+	ch := make(chan error, 1)
+	go func() {
+		resp, err := http.Get(server.URL + "/_/events")
+		if err != nil {
+			return
+		}
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
+		reader := bufio.NewReader(resp.Body)
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					if err.Error() == "EOF" {
+						break
+					} else {
+						ch <- fmt.Errorf("error reading event stream: %v", err)
+						return
+					}
+				}
+				if line == "\n" {
+					continue
+				}
+				if line != "event: rebuild\n" {
+					ch <- fmt.Errorf("unexpected event format: %s", line)
+					return
+				}
+				ch <- nil
+			}
+		}
+	}()
+	return ch
+}
+
+func TestHandlerRemovesTempFiles(t *testing.T) {
 	t.Parallel()
 
-	c := make(chan time.Time)
-	w := newFakeWatcher(c)
-	b := &fakeBuilder{}
+	watcherCh := make(chan time.Time)
+	w := newFakeWatcher(watcherCh)
 	baseDir := t.TempDir()
+	fb := &fakeBuilder{
+		content: "initial build",
+	}
+
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
-	r, err := handler.Start(ctx, w, b, baseDir)
+
+	h, err := handler.Start(ctx, w, fb, baseDir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	server := httptest.NewServer(h)
+	t.Cleanup(server.Close)
 
-	for i := range 5 {
-		select {
-		case <-r.Ch():
-			if i < 4 {
-				fmt.Println(r.BuildDir)
-				c <- time.Now()
-			}
-		case <-time.After(100 * time.Millisecond):
-			t.Fatalf("timeout waiting for build %d", i)
-		}
-	}
+	watcherCh <- time.Now()
 
-	tmpDirs, err := os.ReadDir(baseDir)
+	files, err := os.ReadDir(baseDir)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("error reading baseDir: %v", err)
 	}
-	expected := filepath.Base(r.BuildDir)
-	for _, dir := range tmpDirs {
-		if dir.IsDir() && dir.Name() != filepath.Base(r.BuildDir) {
-			t.Fatalf("expected only active build dir %s, found: %s", expected, dir.Name())
-		}
+	if len(files) != 1 {
+		t.Fatalf("expected one file after build, found %d", len(files))
 	}
 
 	cancel()
 
 	time.Sleep(100 * time.Millisecond)
 
-	file, err := os.Open(baseDir)
-	if err != nil {
-		t.Fatal(err)
+	_, err = os.Stat(baseDir)
+	if err == nil || !os.IsNotExist(err) {
+		t.Fatalf("expected %s to be removed after handler shutdown, but it exists", baseDir)
 	}
-	t.Cleanup(func() {
-		_ = file.Close()
-	})
-
-	if _, err = file.Readdirnames(1); err != nil && !errors.Is(err, io.EOF) {
-		t.Fatalf("expected no files in baseDir after cancel, found: %v", err)
-	}
-}*/
+}
