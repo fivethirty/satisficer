@@ -23,7 +23,10 @@ func ToContent(t *testing.T, fmMap map[string]any, markdown string) string {
 }
 
 func SortedPaths(t *testing.T, fsys fs.FS) []string {
-	var paths []string
+	paths := []string{}
+	if fsys == nil {
+		return paths
+	}
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
