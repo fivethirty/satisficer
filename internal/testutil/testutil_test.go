@@ -10,6 +10,7 @@ import (
 )
 
 func TestSortedPaths(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name     string
@@ -47,9 +48,8 @@ func TestSortedPaths(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			// Call the SortedPaths function from testutil
+			t.Parallel()
 			result := testutil.SortedPaths(t, test.input)
-
 			if !reflect.DeepEqual(result, test.expected) {
 				t.Errorf("expected %v, got %v", test.expected, result)
 			}

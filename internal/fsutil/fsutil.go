@@ -9,6 +9,9 @@ import (
 )
 
 func CopyFS(src fs.FS, destDir string) error {
+	if src == nil {
+		return nil
+	}
 	return fs.WalkDir(src, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
