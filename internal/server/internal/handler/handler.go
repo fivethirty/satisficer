@@ -91,7 +91,7 @@ func (h *Handler) events(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-h.buildCh:
-			_, err := fmt.Fprint(w, "event: rebuild\n\n")
+			_, err := fmt.Fprint(w, "data: rebuild\n\n")
 			if err != nil {
 				http.Error(w, "failed to write event", http.StatusInternalServerError)
 				return

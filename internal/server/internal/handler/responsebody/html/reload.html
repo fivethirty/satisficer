@@ -1,9 +1,6 @@
 <script>
-	// Function to reload the current page
 	const eventSource = new EventSource('/_/events');
 	eventSource.onmessage = function (event) {
-		if (event.event === 'rebuild') {
-			window.location.reload();
-		}
+		window.location.reload();
 	};
 </script>

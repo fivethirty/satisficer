@@ -20,7 +20,7 @@ func Serve(projectFS fs.FS, port uint16) error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(300 * time.Millisecond)
 	w, err := watcher.Start(ctx, projectFS, ticker.C)
 	if err != nil {
 		return err
