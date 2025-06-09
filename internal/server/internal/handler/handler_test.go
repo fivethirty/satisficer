@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bufio"
 	"context"
+	_ "embed"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,9 @@ import (
 const (
 	buildFile = "output.txt"
 )
+
+//go:embed responsebody/html/reload.html
+var reloadHTML string
 
 type fakeBuilder struct {
 	content string
@@ -141,8 +145,10 @@ func testRequest(t *testing.T, server *httptest.Server, fb *fakeBuilder) {
 	if err != nil {
 		t.Fatalf("error reading response body: %v", err)
 	}
-	if string(body) != fb.content {
-		t.Fatalf("expected build content '%s', got '%s'", fb.content, string(body))
+	expected := fmt.Sprintf("%s%s", reloadHTML, fb.content)
+	bodyStr := string(body)
+	if bodyStr != expected {
+		t.Fatalf("expected build content '%s', got '%s'", expected, bodyStr)
 	}
 }
 

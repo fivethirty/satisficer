@@ -1,13 +1,17 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"sync/atomic"
 	"time"
+
+	"github.com/fivethirty/satisficer/internal/server/internal/handler/responsebody"
 )
 
 type Watcher interface {
@@ -101,6 +105,22 @@ func (h *Handler) events(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type bufResponseWriter struct {
+	buf bytes.Buffer
+}
+
+func (b *bufResponseWriter) Write(bytes []byte) (int, error) {
+	return b.buf.Write(bytes)
+}
+
+func (*bufResponseWriter) WriteHeader(statusCode int) {
+	// no op
+}
+
+func (w *bufResponseWriter) Header() http.Header {
+	return http.Header{}
+}
+
 func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
 	build, ok := h.build.Load().(build)
 	if !ok {
@@ -112,8 +132,19 @@ func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// xxx "serve" http into a string then wrap? can use the built in html lib
-	build.fileServer.ServeHTTP(w, r)
+	wrapped := &bufResponseWriter{
+		buf: bytes.Buffer{},
+	}
+
+	build.fileServer.ServeHTTP(wrapped, r)
+
+	body := responsebody.WithReloadHTML(wrapped.buf.Bytes())
+
+	_, err := w.Write(body)
+	if err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *Handler) publish() {
