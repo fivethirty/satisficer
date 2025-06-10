@@ -44,12 +44,30 @@ Satisficer expects the following project directory structure:
 
 The `content` directory contains a sites content.
 
-Markdown files in `content` are processed and rendered to HTML. The result is
-written to the output directory usng the following rules:
+#### Markdown Content
+
+All markdown content must contain a JSON front matter block at the top of the
+file as follows. All fields except `updatedAt` are required.
+
+```markdown
+---
+{
+    "title": "My Cool Page",
+    "description": "It's so cool.",
+    "createdAt": "2023-06-09T12:00:00Z",
+    "updatedAt": "2023-06-09T12:00:00Z",
+}
+---
+# Cool Page
+```
+
+Satsficer will render the markdown content to HTML and place it in the output
+directory according to the following rules:
 
 - Any file that matches `**/index.md` is rendered to `**/index.html`.
-- Any other markdown file is rendered into a new subdirectory with the same
-  name as the file, e.g. `about.md` is rendered to `about/index.html`.
+- Any other markdown file is rendered into `index.html`in a new subdirectory
+  with the same name as the file, e.g. `about.md` is rendered to
+  `about/index.html`.
 
 Non-markdown files in `content` are copied to the output directory as-is.
 
@@ -63,6 +81,7 @@ content/
 └── posts
     ├── post1.md
     └── post2.md
+
 output/
 ├── about
 │   └── index.html
@@ -74,4 +93,6 @@ output/
     └── post2
         └── index.html
 ```
+### Layout
 
+The `layout` directory contains the templates and static files for the site.
