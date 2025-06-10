@@ -1,7 +1,7 @@
-# Satisficer
+# // ---[S A T I S F I C E R]--- \\\\
 
 Satisficer is a simple, opinionated static site generator written in Go. It does
-a lot less than the competition but as a result the docs fit on a single page.
+a lot less than the competition but as a result the docs fit in a single README.
 It satisfies my needs. Perhaps it will satisfy yours too.
 
 ## Features
@@ -35,8 +35,12 @@ satisficer build <project-dir> <output-dir>
 Satisficer expects the following project directory structure:
 
 ```
-<project-dir>
 ├── content
 ├── layouts
 │   ├── static
 ```
+
+### Content
+
+The `content` directory contains a sites content. Satisficer supports both
+Markdown and non-Markdown content files. Markdown files will be rendered as HTML
