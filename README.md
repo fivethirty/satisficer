@@ -36,11 +36,42 @@ Satisficer expects the following project directory structure:
 
 ```
 ├── content
-├── layouts
+├── layout
 │   ├── static
 ```
 
 ### Content
 
-The `content` directory contains a sites content. Satisficer supports both
-Markdown and non-Markdown content files. Markdown files will be rendered as HTML
+The `content` directory contains a sites content.
+
+Markdown files in `content` are processed and rendered to HTML. The result is
+written to the output directory usng the following rules:
+
+- Any file that matches `**/index.md` is rendered to `**/index.html`.
+- Any other markdown file is rendered into a new subdirectory with the same
+  name as the file, e.g. `about.md` is rendered to `about/index.html`.
+
+Non-markdown files in `content` are copied to the output directory as-is.
+
+Here's an example of a `content` directory and the resulting output:
+
+```
+content/
+├── about.md
+├── logo.png
+├── index.md
+└── posts
+    ├── post1.md
+    └── post2.md
+output/
+├── about
+│   └── index.html
+├── index.html
+├── logo.png
+└── posts
+    ├── post1
+    │   └── index.html
+    └── post2
+        └── index.html
+```
+
