@@ -6,22 +6,20 @@ It satisfies my needs. Perhaps it will satisfy yours too.
 
 ## Features
 
-1. Commonmark compatible Markdown support via goldmark.
-2. No external dependencies besides goldmark.
+1. Commonmark compatible Markdown support via [goldmark](https://github.com/yuin/goldmark).
+2. No external dependencies besides [goldmark](https://github.com/yuin/goldmark).
 3. A simple templating system using Go's `html/template`.
 4. A dev server that refreshes the page when files change.
 
 ## Getting Started
 
-```
+```bash
 go install github.com/fivethirty/satisficer@latest
 ```
 
 ## Usage
 
-To create a new site:
-
-```
+```bash
 # Create a new site
 satisficer create <project-dir>
 
@@ -34,4 +32,11 @@ satisficer build <project-dir> <output-dir>
 
 ## Documentation
 
-Coming soon.
+Satisficer expects the following project directory structure:
+
+```
+<project-dir>
+├── content
+├── layouts
+│   ├── static
+```
