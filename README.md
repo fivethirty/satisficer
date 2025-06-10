@@ -47,7 +47,9 @@ The `content` directory contains a sites content.
 #### Markdown Content
 
 All markdown content must contain a JSON front matter block at the top of the
-file as follows. All fields except `updatedAt` are required.
+file as follows.
+
+All fields except `updatedAt` are required.
 
 ```markdown
 ---
@@ -61,17 +63,21 @@ file as follows. All fields except `updatedAt` are required.
 # Cool Page
 ```
 
-Satsficer will render the markdown content to HTML and place it in the output
-directory according to the following rules:
+When building a site, Satisficer will render markdown to HTML using templates in
+the `layout` directory and place the results in the output directory according
+to the following rules:
 
 - Any file that matches `**/index.md` is rendered to `**/index.html`.
 - Any other markdown file is rendered into `index.html`in a new subdirectory
   with the same name as the file, e.g. `about.md` is rendered to
   `about/index.html`.
 
-Non-markdown files in `content` are copied to the output directory as-is.
+#### Non-Markdown Content
 
-Here's an example of a `content` directory and the resulting output:
+Non-markdown files in `content` are copied directly to the output directory.
+
+
+#### Example Directory Structure
 
 ```
 content/
