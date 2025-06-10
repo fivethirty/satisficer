@@ -6,6 +6,4 @@ Commands:
 	serve    Start a local dev server.
 	build    Build a site.
 
-
-
 Use 'satisficer <command> -h' for more information on a command.
