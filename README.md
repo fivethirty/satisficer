@@ -139,7 +139,7 @@ If we had a piece of content in `content/subdir/index.md`, Satisficer would do
 the exact same thing, but it would look for `index.html.tmpl` at each step
 instead.
 
-##### Pages
+##### page.html.tmpl
 
 Page templates are used to render individual pieces of content. Each page
 template is passed a `Page` struct that contains the following fields:
@@ -183,7 +183,7 @@ A simple page template might look like this:
 </html>
 ```
 
-##### Indexes
+##### index.html.tmpl
 
 Index templates are used to render information about a whole directory of
 content. Each index template is passed a `Section` struct that contains the
