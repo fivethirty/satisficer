@@ -246,12 +246,4 @@ A simple index template might look like this:
             </article>
         {{ end }}
     </main>
-    <footer>
-        <p>Index page created at: {{ .Index.CreatedAt.Format "2006-01-02" }}</p>
-        {{ if .Index.UpdatedAt }}
-            <p>Index page updated at: {{ .Index.UpdatedAt.Format "2006-01-02" }}</p>
-        {{ end }}
-    </footer>
 </body>
-</html>
-```
