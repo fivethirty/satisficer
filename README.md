@@ -24,7 +24,7 @@ go install github.com/fivethirty/satisficer@latest
 satisficer create <project-dir>
 
 # Run the dev server
-satisficer serve <project-dir> [--port <port>]
+satisficer serve <project-dir> [-p <port>]
 
 # Build the site
 satisficer build <project-dir> <output-dir>
@@ -42,7 +42,7 @@ Satisficer expects the following project directory structure:
 
 ### Content
 
-The `content` directory contains a sites content.
+The `content` directory contains a site's content.
 
 #### Markdown Content
 
@@ -66,7 +66,7 @@ the `layout` directory and places the results in the output directory according
 to the following logic:
 
 - Any file that matches `content/**/index.md` is rendered to `<output>/**/index.html`.
-- Any other markdown file is rendered into `index.html`in a new subdirectory
+- Any other markdown file is rendered into `index.html` in a new subdirectory
   with the same name as the file. For example, `content/about.md` is rendered to
   `<output>/about/index.html`.
 
@@ -99,7 +99,7 @@ output/
 ```
 ### Layout
 
-The `layout` directory contains the both static assets and templates used to
+The `layout` directory contains both static assets and templates used to
 render the markdown content in `content` into HTML.
 
 #### Static Assets
@@ -168,7 +168,6 @@ A simple page template might look like this:
 <body>
     <header>
         <h1>{{ .Title }}</h1>
-        <p>{{ .Description }}</p>
     </header>
     <main>
         {{ .Content }}
