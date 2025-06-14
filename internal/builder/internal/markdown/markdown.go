@@ -10,6 +10,10 @@ import (
 	"time"
 
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
 
 type ParsedFile struct {
@@ -40,7 +44,37 @@ func (fm *FrontMatter) validate() error {
 	return nil
 }
 
-var markdown = goldmark.New()
+type externalLinkTransformer struct{}
+
+func (t *externalLinkTransformer) Transform(
+	node *ast.Document,
+	reader text.Reader,
+	pc parser.Context,
+) {
+	_ = ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering || n.Kind() != ast.KindLink {
+			return ast.WalkContinue, nil
+		}
+
+		link := n.(*ast.Link)
+		dest := string(link.Destination)
+
+		if strings.HasPrefix(dest, "http://") || strings.HasPrefix(dest, "https://") {
+			link.SetAttribute([]byte("target"), []byte("_blank"))
+			link.SetAttribute([]byte("rel"), []byte("noopener noreferrer"))
+		}
+
+		return ast.WalkContinue, nil
+	})
+}
+
+var markdown = goldmark.New(
+	goldmark.WithParserOptions(
+		parser.WithASTTransformers(
+			util.Prioritized(&externalLinkTransformer{}, 100),
+		),
+	),
+)
 
 func Parse(reader io.Reader) (*ParsedFile, error) {
 	pf, err := readPageFile(reader)
