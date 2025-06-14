@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -35,6 +36,11 @@ func Serve(projectFS fs.FS, port uint16) error {
 	}
 
 	portStr := fmt.Sprintf(":%d", port)
+
+	slog.Info(
+		"Starting server",
+		"port", portStr,
+	)
 
 	err = http.ListenAndServe(portStr, h)
 	if err != nil && err != http.ErrServerClosed {
