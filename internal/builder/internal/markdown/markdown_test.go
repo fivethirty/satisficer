@@ -105,6 +105,82 @@ func TestParse(t *testing.T) {
 			),
 			wantError: true,
 		},
+		{
+			name: "external HTTP link gets target=_blank",
+			markdown: testutil.ToContent(
+				t,
+				map[string]any{
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
+				},
+				"[Example](http://example.com)",
+			),
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: nil,
+				},
+				HTML: `<p><a href="http://example.com" target="_blank" rel="noopener noreferrer">Example</a></p>` + "\n",
+			},
+		},
+		{
+			name: "external HTTPS link gets target=_blank",
+			markdown: testutil.ToContent(
+				t,
+				map[string]any{
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
+				},
+				"[Example](https://example.com)",
+			),
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: nil,
+				},
+				HTML: `<p><a href="https://example.com" target="_blank" rel="noopener noreferrer">Example</a></p>` + "\n",
+			},
+		},
+		{
+			name: "internal relative link remains unchanged",
+			markdown: testutil.ToContent(
+				t,
+				map[string]any{
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
+				},
+				"[about page](/about)",
+			),
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: nil,
+				},
+				HTML: `<p><a href="/about">about page</a></p>` + "\n",
+			},
+		},
+		{
+			name: "internal anchor link remains unchanged",
+			markdown: testutil.ToContent(
+				t,
+				map[string]any{
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
+				},
+				"[section](#heading)",
+			),
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: nil,
+				},
+				HTML: `<p><a href="#heading">section</a></p>` + "\n",
+			},
+		},
 	}
 
 	for _, test := range tests {
