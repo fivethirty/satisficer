@@ -6,110 +6,84 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/fivethirty/satisficer/internal/builder"
 	"github.com/fivethirty/satisficer/internal/creator"
-	"github.com/fivethirty/satisficer/internal/logs"
 	"github.com/fivethirty/satisficer/internal/server"
 )
 
+var DefaultWriter io.Writer = os.Stderr
+
 type Command struct {
-	Usage   string
-	NumArgs int
-	Execute func(args []string) error
+	Name      string
+	UsageText string
+	FlagSet   *flag.FlagSet
+	Validate  func() error
+	Run       func() error
+}
+
+// Bit of a hack that these are empty, but they allow us to figure out
+// when to exit with a specific error code upstream without polluting
+// the log message.
+var ErrBadCommand = errors.New("")
+var ErrHelp = errors.New("")
+
+func (sc *Command) usage(err error) error {
+	_, _ = fmt.Fprintln(DefaultWriter, sc.UsageText)
+	if err != nil {
+		return fmt.Errorf("%w%w", err, ErrBadCommand)
+	}
+	return ErrHelp
+}
+
+func (sc *Command) parse(args []string) error {
+	if err := sc.FlagSet.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (sc *Command) Execute(args []string) error {
+	if err := sc.parse(args); err != nil {
+		return sc.usage(err)
+	}
+	if err := sc.Validate(); err != nil {
+		return err
+	}
+	return sc.Run()
+}
+
+func (sc *Command) verifyArgCount(expected int) error {
+	numArgs := sc.FlagSet.NArg()
+	if numArgs != expected {
+		if numArgs == 0 {
+			return sc.usage(nil)
+		}
+		return sc.usage(
+			fmt.Errorf(
+				"expected %d arguments, got %d",
+				expected,
+				sc.FlagSet.NArg(),
+			),
+		)
+	}
+	return nil
 }
 
 //go:embed usage
 var usageFS embed.FS
 
-var Commands = map[string]*Command{
-	"create": {
-		Usage:   "usage/create.txt",
-		NumArgs: 1,
-		Execute: func(args []string) error {
-			return creator.Create(args[0])
-		},
-	},
-	"build": {
-		Usage:   "usage/build.txt",
-		NumArgs: 2,
-		Execute: func(args []string) error {
-			projectFS := os.DirFS(args[0])
-			buildDir := args[1]
-			b, err := builder.New(projectFS)
-			if err != nil {
-				return err
-			}
-
-			return b.Build(buildDir)
-		},
-	},
-	"serve": {
-		Usage:   "usage/serve.txt",
-		NumArgs: 1,
-		Execute: func(args []string) error {
-			projectFS := os.DirFS(args[0])
-			port := uint16(8080) // Default port, can be changed later
-			return server.Serve(projectFS, port)
-		},
-	},
-}
-
-const mainUsagePath = "usage/main.txt"
-
-func Execute(w io.Writer, args []string, commands map[string]*Command) error {
-	setLogger(w)
-	mainFlagSet := flagSet(args[0])
-	mainUsage, err := usage(w, mainUsagePath)
+func readUsageText(path string) string {
+	usage, err := usageFS.ReadFile(path)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	err = parse(mainFlagSet, args[1:], mainUsage)
-	if err != nil {
-		return ignoreErrHelp(err)
-	}
-
-	subName := mainFlagSet.Arg(0)
-	if subName == "" {
-		return mainUsage(nil)
-	}
-	subCommand, ok := commands[subName]
-	if !ok {
-		return mainUsage(fmt.Errorf("unknown command: %s", subName))
-	}
-
-	subUsage, err := usage(w, subCommand.Usage)
-	if err != nil {
-		return err
-	}
-
-	subFlagSet := flagSet(subName)
-
-	err = parse(subFlagSet, mainFlagSet.Args()[1:], subUsage)
-	if err != nil {
-		return ignoreErrHelp(err)
-	}
-	numArgs := subFlagSet.NArg()
-	if numArgs != subCommand.NumArgs {
-		if numArgs == 0 {
-			return subUsage(nil)
-		}
-		return subUsage(
-			fmt.Errorf(
-				"expected %d arguments, got %d",
-				subCommand.NumArgs,
-				subFlagSet.NArg(),
-			),
-		)
-	}
-	return subCommand.Execute(subFlagSet.Args())
-}
-
-func setLogger(w io.Writer) {
-	slog.SetDefault(slog.New(logs.NewHandler(w)))
+	return strings.TrimSpace(string(usage))
 }
 
 func flagSet(name string) *flag.FlagSet {
@@ -118,38 +92,89 @@ func flagSet(name string) *flag.FlagSet {
 	return fs
 }
 
-type usageFunc func(error) error
-
-func usage(w io.Writer, usagePath string) (usageFunc, error) {
-	usage, err := usageFS.ReadFile(usagePath)
-	if err != nil {
-		return nil, err
-	}
-	usageStr := strings.TrimSpace(string(usage))
-	return func(err error) error {
-		_, _ = fmt.Fprintln(w, usageStr)
-		if err != nil {
-			return fmt.Errorf("%w%w", err, ErrBadCommand)
+var SubCommands = map[string]*Command{
+	"create": func() *Command {
+		fs := flagSet("create")
+		c := &Command{
+			UsageText: readUsageText("usage/create.txt"),
+			FlagSet:   fs,
 		}
-		return nil
-	}, nil
+		c.Validate = func() error {
+			return c.verifyArgCount(1)
+		}
+		c.Run = func() error {
+			return creator.Create(fs.Arg(0))
+		}
+		return c
+	}(),
+	"build": func() *Command {
+		fs := flagSet("build")
+		c := &Command{
+			UsageText: readUsageText("usage/build.txt"),
+			FlagSet:   fs,
+		}
+		c.Validate = func() error {
+			return c.verifyArgCount(2)
+		}
+		c.Run = func() error {
+			projectFS := os.DirFS(fs.Arg(0))
+			buildDir := fs.Arg(1)
+			b, err := builder.New(projectFS)
+			if err != nil {
+				return err
+			}
+
+			return b.Build(buildDir)
+		}
+		return c
+	}(),
+	"serve": func() *Command {
+		fs := flagSet("serve")
+		var port uint
+		fs.UintVar(&port, "port", 3000, "")
+		fs.UintVar(&port, "p", 3000, "")
+		c := &Command{
+			UsageText: readUsageText("usage/serve.txt"),
+			FlagSet:   fs,
+		}
+		c.Validate = func() error {
+			return c.verifyArgCount(1)
+		}
+		c.Run = func() error {
+			projectFS := os.DirFS(fs.Arg(0))
+			port := uint16(port)
+			return server.Serve(projectFS, port)
+		}
+		return c
+	}(),
 }
 
-// Bit of a hack that this is empty, but it allows us to figure out
-// when to exit with a specific error code upstream without polluting
-// the log message.
-var ErrBadCommand = errors.New("")
-
-func parse(fs *flag.FlagSet, args []string, uf usageFunc) error {
-	if err := fs.Parse(args); err != nil {
-		return uf(err)
+func mainCommand(name string) *Command {
+	fs := flagSet(name)
+	c := &Command{
+		UsageText: readUsageText("usage/main.txt"),
+		FlagSet:   fs,
+		Validate: func() error {
+			return nil
+		},
 	}
-	return nil
+
+	c.Run = func() error {
+		subName := fs.Arg(0)
+		if subName == "" {
+			return c.usage(nil)
+		}
+		sub, ok := SubCommands[subName]
+		if !ok {
+			return c.usage(fmt.Errorf("unknown command %q", subName))
+		}
+		return sub.Execute(fs.Args()[1:])
+	}
+
+	return c
 }
 
-func ignoreErrHelp(err error) error {
-	if errors.Is(err, flag.ErrHelp) {
-		return nil
-	}
-	return err
+func Execute(args []string) error {
+	cmd := mainCommand(args[0])
+	return cmd.Execute(args[1:])
 }

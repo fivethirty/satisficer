@@ -16,11 +16,13 @@ var usageFS embed.FS
 
 var noOpCommands = func() map[string]*commands.Command {
 	result := make(map[string]*commands.Command)
-	for name, cmd := range commands.Commands {
+	for name, cmd := range commands.SubCommands {
 		result[name] = &commands.Command{
-			Usage:   cmd.Usage,
-			NumArgs: cmd.NumArgs,
-			Execute: func(args []string) error {
+			Name:      cmd.Name,
+			UsageText: cmd.UsageText,
+			FlagSet:   cmd.FlagSet,
+			Validate:  cmd.Validate,
+			Run: func() error {
 				return nil
 			},
 		}
@@ -28,8 +30,12 @@ var noOpCommands = func() map[string]*commands.Command {
 	return result
 }()
 
-// the Command tests can't be parallel because they modify the global slog and break everything
+// A lot of these tests cannot be run in parallel because they
+// modify the globals. This is a bit of a hack both to avoid
+// side effects and to test that stuff got logged.
+
 func TestBadCommand(t *testing.T) {
+	commands.SubCommands = noOpCommands
 	tests := []struct {
 		name      string
 		args      []string
@@ -46,7 +52,7 @@ func TestBadCommand(t *testing.T) {
 			usagePath: "usage/main.txt",
 		},
 		{
-			name:      "sub: missing required argument",
+			name:      "sub: not enough arguments",
 			args:      []string{"satisficer", "build", "arg1"},
 			usagePath: "usage/build.txt",
 		},
@@ -65,7 +71,8 @@ func TestBadCommand(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			err := commands.Execute(buf, test.args, noOpCommands)
+			commands.DefaultWriter = buf
+			err := commands.Execute(test.args)
 			if !errors.Is(err, commands.ErrBadCommand) {
 				t.Fatalf("expected ErrBadCommand but got %v", err)
 			}
@@ -86,6 +93,7 @@ func TestBadCommand(t *testing.T) {
 }
 
 func TestHelp(t *testing.T) {
+	commands.SubCommands = noOpCommands
 	tests := []struct {
 		name      string
 		args      []string
@@ -129,9 +137,10 @@ func TestHelp(t *testing.T) {
 
 			for _, args := range allArgs {
 				buf := bytes.NewBuffer(nil)
-				err := commands.Execute(buf, args, noOpCommands)
-				if err != nil {
-					t.Fatalf("expected no error but got %v", err)
+				commands.DefaultWriter = buf
+				err := commands.Execute(args)
+				if !errors.Is(err, commands.ErrHelp) || err == nil {
+					t.Fatalf("expected ErrHelp but got %v", err)
 				}
 				if buf.String() != expectedUsageStr {
 					t.Fatalf(
@@ -153,9 +162,7 @@ func TestRealCreate(t *testing.T) {
 	})
 
 	err := commands.Execute(
-		os.Stdout,
 		[]string{"satisficer", "create", dir},
-		commands.Commands,
 	)
 	if err != nil {
 		t.Fatalf("expected no error but got %v", err)
@@ -169,18 +176,14 @@ func TestRealCreateAndBuild(t *testing.T) {
 	buildDir := filepath.Join(dir, "build")
 
 	err := commands.Execute(
-		os.Stdout,
 		[]string{"satisficer", "create", projectDir},
-		commands.Commands,
 	)
 	if err != nil {
 		t.Fatalf("expected no error but got %v", err)
 	}
 
 	err = commands.Execute(
-		os.Stdout,
 		[]string{"satisficer", "build", projectDir, buildDir},
-		commands.Commands,
 	)
 	if err != nil {
 		t.Fatalf("expected no error but got %v", err)
