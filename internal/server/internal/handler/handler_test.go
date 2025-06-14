@@ -182,7 +182,7 @@ func sseCh(t *testing.T, server *httptest.Server) <-chan error {
 				if line == "\n" {
 					continue
 				}
-				if line != "event: rebuild\n" {
+				if line != "data: rebuild\n" {
 					ch <- fmt.Errorf("unexpected event format: %s", line)
 					return
 				}
