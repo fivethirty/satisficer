@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/fivethirty/satisficer/internal/builder"
@@ -37,14 +39,28 @@ func Serve(projectFS fs.FS, port uint16) error {
 
 	portStr := fmt.Sprintf(":%d", port)
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	slog.Info(
 		"Starting server",
 		"port", portStr,
 	)
 
-	err = http.ListenAndServe(portStr, h)
-	if err != nil && err != http.ErrServerClosed {
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := http.ListenAndServe(portStr, h); err != nil {
+			serverErr <- err
+		}
+	}()
+
+	select {
+	case err := <-serverErr:
 		return err
+	case <-sigChan:
+		if err := os.RemoveAll(dir); err != nil {
+			slog.Warn("failed to remove server build directory", "path", dir, "error", err)
+		}
+		return nil
 	}
-	return nil
 }

@@ -253,7 +253,7 @@ func sseCh(t *testing.T, server *httptest.Server) <-chan error {
 	return ch
 }
 
-func TestHandlerRemovesTempFiles(t *testing.T) {
+func TestHandler_RemovesTempFilesOnRebuild(t *testing.T) {
 	t.Parallel()
 
 	watcherCh := make(chan time.Time)
@@ -281,14 +281,5 @@ func TestHandlerRemovesTempFiles(t *testing.T) {
 	}
 	if len(files) != 1 {
 		t.Fatalf("expected one file after build, found %d", len(files))
-	}
-
-	cancel()
-
-	time.Sleep(100 * time.Millisecond)
-
-	_, err = os.Stat(baseDir)
-	if err == nil || !os.IsNotExist(err) {
-		t.Fatalf("expected %s to be removed after handler shutdown, but it exists", baseDir)
 	}
 }

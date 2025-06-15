@@ -67,9 +67,6 @@ func (h *Handler) watch() {
 		for {
 			select {
 			case <-h.ctx.Done():
-				if err := os.RemoveAll(h.baseDir); err != nil {
-					slog.Warn("failed to remove base directory", "path", h.baseDir, "error", err)
-				}
 				return
 			case <-h.watcher.Ch():
 				h.rebuild()
