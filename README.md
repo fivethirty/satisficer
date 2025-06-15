@@ -17,8 +17,18 @@ It satisfies my needs. Perhaps it will satisfy yours too.
 
 ## Getting Started
 
+## Installation
+
+### From Source
 ```bash
-go install github.com/fivethirty/satisficer
+go install github.com/fivethirty/satisficer@latest
+```
+
+### Pre-built Binaries
+Download from [GitHub Releases](https://github.com/fivethirty/satisficer/releases) or:
+
+```bash
+curl -L https://github.com/fivethirty/satisficer/releases/latest/download/satisficer-linux-amd64.tar.gz | tar -xz
 ```
 
 ## Usage
