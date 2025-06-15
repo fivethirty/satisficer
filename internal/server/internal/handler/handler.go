@@ -140,7 +140,6 @@ func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
 
 	build.fileServer.ServeHTTP(wrapped, r)
 
-	// If this was a redirect, pass it through without modification
 	if wrapped.statusCode >= 300 && wrapped.statusCode < 400 {
 		for key, values := range wrapped.header {
 			for _, value := range values {
