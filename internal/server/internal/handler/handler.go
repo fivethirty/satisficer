@@ -174,10 +174,15 @@ func (h *Handler) rebuild() {
 		return
 	}
 
+	buildErr := h.builder.Build(dir)
+	if buildErr != nil {
+		slog.Error("build failed", "error", buildErr)
+	}
+
 	h.build.Store(
 		build{
 			dir:        dir,
-			err:        h.builder.Build(dir),
+			err:        buildErr,
 			fileServer: http.FileServer(http.Dir(dir)),
 		},
 	)
