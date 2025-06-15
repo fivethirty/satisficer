@@ -1,5 +1,9 @@
 # Satisficer
 
+![https://github.com/fivethirty/satisficer/actions/workflows/test.yml/badge.svg]
+![https://github.com/fivethirty/satisficer/actions/workflows/lint.yml/badge.svg]
+
+
 Satisficer is a simple, opinionated static site generator written in Go. It does
 a lot less than the competition but as a result the docs fit in a single `README.md`.
 It satisfies my needs. Perhaps it will satisfy yours too.
