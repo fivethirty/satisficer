@@ -67,9 +67,6 @@ func (h *Handler) watch() {
 		for {
 			select {
 			case <-h.ctx.Done():
-				if err := os.RemoveAll(h.baseDir); err != nil {
-					slog.Warn("failed to remove base directory", "path", h.baseDir, "error", err)
-				}
 				return
 			case <-h.watcher.Ch():
 				h.rebuild()
@@ -106,19 +103,24 @@ func (h *Handler) events(w http.ResponseWriter, r *http.Request) {
 }
 
 type bufResponseWriter struct {
-	buf bytes.Buffer
+	buf        bytes.Buffer
+	statusCode int
+	header     http.Header
 }
 
-func (b *bufResponseWriter) Write(bytes []byte) (int, error) {
-	return b.buf.Write(bytes)
+func (b *bufResponseWriter) Write(data []byte) (int, error) {
+	return b.buf.Write(data)
 }
 
-func (*bufResponseWriter) WriteHeader(statusCode int) {
-	// no op
+func (b *bufResponseWriter) WriteHeader(statusCode int) {
+	b.statusCode = statusCode
 }
 
-func (w *bufResponseWriter) Header() http.Header {
-	return http.Header{}
+func (b *bufResponseWriter) Header() http.Header {
+	if b.header == nil {
+		b.header = make(http.Header)
+	}
+	return b.header
 }
 
 func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +140,18 @@ func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
 
 	build.fileServer.ServeHTTP(wrapped, r)
 
-	body := responsebody.WithReloadHTML(wrapped.buf.Bytes())
+	if wrapped.statusCode >= 300 && wrapped.statusCode < 400 {
+		for key, values := range wrapped.header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+		w.WriteHeader(wrapped.statusCode)
+		return
+	}
+
+	bufContent := wrapped.buf.Bytes()
+	body := responsebody.WithReloadHTML(bufContent)
 
 	_, err := w.Write(body)
 	if err != nil {
@@ -174,10 +187,15 @@ func (h *Handler) rebuild() {
 		return
 	}
 
+	buildErr := h.builder.Build(dir)
+	if buildErr != nil {
+		slog.Error("build failed", "error", buildErr)
+	}
+
 	h.build.Store(
 		build{
 			dir:        dir,
-			err:        h.builder.Build(dir),
+			err:        buildErr,
 			fileServer: http.FileServer(http.Dir(dir)),
 		},
 	)

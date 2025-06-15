@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	buildFile = "output.txt"
+	buildFile = "foo/index.html"
 )
 
 //go:embed responsebody/html/reload.html
@@ -33,6 +33,9 @@ func (b *fakeBuilder) Build(buildDir string) error {
 		return b.err
 	}
 	dest := filepath.Join(buildDir, buildFile)
+	if err := os.MkdirAll(filepath.Dir(dest), os.ModePerm); err != nil {
+		return err
+	}
 	return os.WriteFile(dest, []byte(b.content), os.ModePerm)
 }
 
@@ -121,6 +124,63 @@ func TestHandler(t *testing.T) {
 	}
 }
 
+func TestHandler_TrailingSlash(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{
+			name: "no trailing slash",
+			url:  "/foo",
+		},
+		{
+			name: "with trailing slash",
+			url:  "/foo/",
+		},
+		{
+			name: "with double trailing slash",
+			url:  "/foo//",
+		},
+		{
+			name: "full path",
+			url:  "/foo/index.html",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			watcherCh := make(chan time.Time)
+			w := newFakeWatcher(watcherCh)
+			baseDir := t.TempDir()
+			fb := &fakeBuilder{
+				content: "initial build",
+			}
+
+			h, err := handler.Start(t.Context(), w, fb, baseDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := httptest.NewServer(h)
+			t.Cleanup(server.Close)
+
+			resp, err := http.Get(server.URL + test.url)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("expected status OK, got %v", resp.StatusCode)
+			}
+		})
+	}
+}
+
 func testRequest(t *testing.T, server *httptest.Server, fb *fakeBuilder) {
 	t.Helper()
 	resp, err := http.Get(server.URL + "/" + buildFile)
@@ -193,7 +253,7 @@ func sseCh(t *testing.T, server *httptest.Server) <-chan error {
 	return ch
 }
 
-func TestHandlerRemovesTempFiles(t *testing.T) {
+func TestHandler_RemovesTempFilesOnRebuild(t *testing.T) {
 	t.Parallel()
 
 	watcherCh := make(chan time.Time)
@@ -221,14 +281,5 @@ func TestHandlerRemovesTempFiles(t *testing.T) {
 	}
 	if len(files) != 1 {
 		t.Fatalf("expected one file after build, found %d", len(files))
-	}
-
-	cancel()
-
-	time.Sleep(100 * time.Millisecond)
-
-	_, err = os.Stat(baseDir)
-	if err == nil || !os.IsNotExist(err) {
-		t.Fatalf("expected %s to be removed after handler shutdown, but it exists", baseDir)
 	}
 }
