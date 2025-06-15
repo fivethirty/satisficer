@@ -1,7 +1,7 @@
 ---
-{ "title": "Satisficer", "createdAt": "2025-05-29T00:00:00Z" }
+{ "title": "Satisficer", "createdAt": "2025-06-14T00:00:00Z" }
 ---
 
-# //===[ S A T I S F I C E R ]===\\\\
+Welcome to Satisficer, a static site generator that is good enough.
 
-[github](https://github.com/fivethirty/satisficer)
+Find docs over on [GitHub](https://github.com/fivethirty/satisficer).
