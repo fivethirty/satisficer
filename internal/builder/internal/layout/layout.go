@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -88,22 +87,13 @@ func templates(fsys fs.FS) (*template.Template, error) {
 	return tmpl, nil
 }
 
-func (t *Layout) TemplateForContent(contentPath string) (*template.Template, error) {
-	base := filepath.Base(contentPath)
-	targetBase := "page.html.tmpl"
-	if base == "index.md" {
-		targetBase = "index.html.tmpl"
-	}
-	dir := filepath.Dir(contentPath)
-	target := filepath.Join(dir, targetBase)
-	tmpl := t.Templates.Lookup(target)
-	for tmpl == nil && dir != "." {
-		dir = filepath.Dir(dir)
-		target = filepath.Join(dir, targetBase)
-		tmpl = t.Templates.Lookup(target)
-	}
+func (t *Layout) TemplateForContent(
+	contentPath string,
+	templateFile string,
+) (*template.Template, error) {
+	tmpl := t.Templates.Lookup(templateFile)
 	if tmpl == nil {
-		return nil, fmt.Errorf("template for %s not found", contentPath)
+		return nil, fmt.Errorf("template %s for %s not found", templateFile, contentPath)
 	}
 	return tmpl, nil
 }

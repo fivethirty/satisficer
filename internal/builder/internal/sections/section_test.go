@@ -36,11 +36,11 @@ func TestFromFS(t *testing.T) {
 			},
 			expected: map[string]*sections.Section{
 				"blog": {
-					Index: &sections.Page{
-						URL:    "blog/index.html",
-						Source: "blog/index.md",
-					},
-					Pages: []sections.Page{
+					Others: []sections.Page{
+						{
+							URL:    "blog/index.html",
+							Source: "blog/index.md",
+						},
 						{
 							URL:    "blog/post1/index.html",
 							Source: "blog/post1.md",
@@ -53,11 +53,11 @@ func TestFromFS(t *testing.T) {
 					Files: []sections.File{},
 				},
 				".": {
-					Index: &sections.Page{
-						URL:    "index.html",
-						Source: "index.md",
-					},
-					Pages: []sections.Page{
+					Others: []sections.Page{
+						{
+							URL:    "index.html",
+							Source: "index.md",
+						},
 						{
 							URL:    "about/index.html",
 							Source: "about.md",
@@ -75,11 +75,12 @@ func TestFromFS(t *testing.T) {
 			},
 			expected: map[string]*sections.Section{
 				".": {
-					Index: &sections.Page{
-						URL:    "index.html",
-						Source: "index.md",
+					Others: []sections.Page{
+						{
+							URL:    "index.html",
+							Source: "index.md",
+						},
 					},
-					Pages: []sections.Page{},
 					Files: []sections.File{
 						{
 							URL: "about.html",
@@ -105,8 +106,8 @@ func TestFromFS(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected section %q not found", key)
 				}
-				sortPages(actualSection.Pages)
-				sortPages(expectedSection.Pages)
+				sortPages(actualSection.Others)
+				sortPages(expectedSection.Others)
 				sortFiles(actualSection.Files)
 				sortFiles(expectedSection.Files)
 				if !reflect.DeepEqual(actualSection, expectedSection) {

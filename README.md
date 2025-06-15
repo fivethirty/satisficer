@@ -60,6 +60,7 @@ file as follows. All fields except `updatedAt` are required.
     "description": "It's so cool.",
     "createdAt": "2023-06-09T12:00:00Z",
     "updatedAt": "2023-06-09T12:00:00Z",
+    "template": "custom.html.tmpl"
 }
 ---
 # Cool Page
@@ -121,87 +122,32 @@ two.
 Templates are Go `html/template` files that are used to render the HTML
 generated from markdown content into pages.
 
-There are two types of templates in Satisficer: pages and indexes. Page
-templates are always named `page.html.tmpl` and are used to render any piece of
-markdown content not named `index.md`. Index templates are named
-`index.html.tmpl` and are used to render only files named `index.md`.
+Each markdown file must specify which template to use via the `template` field
+in its frontmatter. The template file will be loaded from the `layout`
+directory.
 
-Any piece of markdown content is rendered using a single template chosen by
-starting in the subdirectory of the `layout` directory that matches the
-subdirectory of the markdown file in `content`. If no such subdirectory exists
-or if the subdirectory does not contain a suitable template, Satisficer will
-look at each parent directory in turn until it finds a suitable template. If no
-template is found, Satisficer will exit with an error when building.
+For example, a file with `"template": "page.html.tmpl"` will use the template
+located at `layout/page.html.tmpl`.
 
-If that all sounds very confusing, here's a simple example. Assume we have a
-piece of content in `content/subdir/about.md`. Satisficer will first look to see
-if there is a template `layout/subdir/page.html.tmpl`. If that does not exist,
-it will look for `layout/page.html.tmpl`. If that does not exist, it will exit
-with an error.
-
-If we had a piece of content in `content/subdir/index.md`, Satisficer would do
-the exact same thing, but it would look for `index.html.tmpl` at each step
-instead.
-
-##### page.html.tmpl
-
-Page templates are used to render individual pieces of content. Each page
-template is passed a `Page` struct that contains the following fields:
-
-```go
-type Page struct {
-	URL       string
-    // the path to the markdown file from which this page was generated
-    // relative to the content directory
-	Source    string
-	Title     string
-	CreatedAt time.Time
-	UpdatedAt *time.Time
-    // the content of the markdown file, rendered to HTML
-	Content   string
-}
-```
-
-A simple page template might look like this:
-
-```html
-<html>
-<head>
-    <title>{{ .Title }}</title>
-</head>
-<body>
-    <header>
-        <h1>{{ .Title }}</h1>
-    </header>
-    <main>
-        {{ .Content }}
-    </main>
-    <footer>
-        <p>Created at: {{ .CreatedAt.Format "2006-01-02" }}</p>
-        {{ if .UpdatedAt }}
-            <p>Updated at: {{ .UpdatedAt.Format "2006-01-02" }}</p>
-        {{ end }}
-    </footer>
-</body>
-</html>
-```
-
-##### index.html.tmpl
-
-Index templates are used to render information about a whole directory of
-content. Each index template is passed a `Section` struct that contains the
-following fields:
+All templates receive a `Section` struct that contains the current page being
+rendered and all other pages in the same directory. This allows templates to
+render individual pages or create section listings as needed.
 
 ```go
 type Section struct {
-    // the Index page itself
-	Index *Page
-    // all of the other pages in the section
-	Pages Pages
-    // all of the files in the section that are not markdown content
-	Files []File
+	Current *Page    // The page being rendered
+	Others  []Page   // All other pages in the same directory
+	Files   []File   // Non-markdown files in the directory
 }
-type Pages []Page
+
+type Page struct {
+	URL       string
+	Source    string  // Path to the markdown file
+	Title     string
+	CreatedAt time.Time
+	UpdatedAt *time.Time
+	Content   string  // Rendered HTML content
+}
 
 type File struct {
 	URL string
@@ -218,35 +164,27 @@ func (p Pages) ByUpdatedAt() Pages
 func (p Pages) Reverse() Pages
 ```
 
-To sort the pages descending by title, you would use:
-
-```go
-{{ range .Pages.ByTitle.Reverse }}
-    <a href="{{ .URL }}">{{ .Title }}</a>
-{{ end }}
-```
-
-A simple index template might look like this:
+A template using both `Current` page and `Others` pages might look like this:
 
 ```html
 <html>
 <head>
-    <title>{{ .Index.Title }}</title>
+    <title>{{ .Current.Title }}</title>
 </head>
 <body>
     <header>
-        <h1>{{ .Index.Title }}</h1>
-        <p>{{ .Index.Description }}</p>
+        <h1>{{ .Current.Title }}</h1>
     </header>
     <main>
-        {{ range .Pages.ByCreatedAt.Reverse }}
+        {{ .Current.Content }}
+        <h2>Other Pages</h2>
+        {{ range .Others.ByCreatedAt.Reverse }}
             <article>
-                <h2><a href="{{ .URL }}">{{ .Title }}</a></h2>
+                <h3><a href="{{ .URL }}">{{ .Title }}</a></h3>
                 <p>Created at: {{ .CreatedAt.Format "2006-01-02" }}</p>
-                {{ if .UpdatedAt }}
-                    <p>Updated at: {{ .UpdatedAt.Format "2006-01-02" }}</p>
-                {{ end }}
             </article>
         {{ end }}
     </main>
 </body>
+</html>
+```

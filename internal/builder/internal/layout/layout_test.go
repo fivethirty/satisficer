@@ -144,73 +144,26 @@ func TestTemplateForContent(t *testing.T) {
 	tests := []struct {
 		name             string
 		contentPath      string
+		templateFile     string
 		fs               fstest.MapFS
 		wantTemplateName string
 		wantErr          bool
 	}{
 		{
-			name:        "can get template for index.md",
-			contentPath: "index.md",
-			fs: fstest.MapFS{
-				"index.html.tmpl": testFile,
-			},
-			wantTemplateName: "index.html.tmpl",
-		},
-		{
-			name:        "can fallback to root template for index.md",
-			contentPath: "foo/index.md",
-			fs: fstest.MapFS{
-				"index.html.tmpl": testFile,
-			},
-			wantTemplateName: "index.html.tmpl",
-		},
-		{
-			name:        "can fallback to nearest template for index.md",
-			contentPath: "foo/bar/index.md",
-			fs: fstest.MapFS{
-				"index.html.tmpl":     testFile,
-				"foo/index.html.tmpl": testFile,
-			},
-			wantTemplateName: "foo/index.html.tmpl",
-		},
-		{
-			name:        "can't get template for index.md when no parent index.html.tmpl",
-			contentPath: "index.md",
-			fs: fstest.MapFS{
-				"foo/index.html.tmpl": testFile,
-			},
-			wantErr: true,
-		},
-		{
-			name:        "can get template for non-index.md page",
-			contentPath: "about.md",
+			name:         "finds template when it exists",
+			contentPath:  "about.md",
+			templateFile: "page.html.tmpl",
 			fs: fstest.MapFS{
 				"page.html.tmpl": testFile,
 			},
 			wantTemplateName: "page.html.tmpl",
 		},
 		{
-			name:        "can fallback to root template for non-index.md page",
-			contentPath: "blog/post.md",
-			fs: fstest.MapFS{
-				"page.html.tmpl": testFile,
-			},
-			wantTemplateName: "page.html.tmpl",
-		},
-		{
-			name:        "can fallback to nearest template for non-index.md page",
-			contentPath: "blog/2025/post.md",
-			fs: fstest.MapFS{
-				"page.html.tmpl":      testFile,
-				"blog/page.html.tmpl": testFile,
-			},
-			wantTemplateName: "blog/page.html.tmpl",
-		},
-		{
-			name:        "can't get template for non-index.md page when no parent page.html.tmpl",
-			contentPath: "foo/bar/page.html.tmpl",
-			fs:          fstest.MapFS{},
-			wantErr:     true,
+			name:         "returns error when template not found",
+			contentPath:  "about.md",
+			templateFile: "missing.html.tmpl",
+			fs:           fstest.MapFS{},
+			wantErr:      true,
 		},
 	}
 
@@ -222,7 +175,7 @@ func TestTemplateForContent(t *testing.T) {
 				t.Fatalf("failed to create templates: %v", err)
 			}
 
-			tmpl, err := l.TemplateForContent(test.contentPath)
+			tmpl, err := l.TemplateForContent(test.contentPath, test.templateFile)
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("unexpected error: %v", err)

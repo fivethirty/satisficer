@@ -97,31 +97,19 @@ func (b *Builder) writeSection(s *sections.Section, l *layout.Layout, buildDir s
 			return err
 		}
 	}
-	if s.Index != nil {
-		slog.Info(
-			"Generating index page",
-			"path",
-			s.Index.URL,
-			"from",
-			s.Index.Source,
-		)
-		tmpl, err := l.TemplateForContent(s.Index.Source)
-		if err != nil {
-			return err
-		}
-		path := filepath.Join(buildDir, s.Index.URL)
-		if err := writeContent(tmpl, s, path); err != nil {
-			return err
-		}
-	}
-	for _, page := range s.Pages {
+
+	allPages := s.Others
+	for _, page := range allPages {
 		slog.Info("Generating page", "path", page.URL, "from", page.Source)
-		tmpl, err := l.TemplateForContent(page.Source)
+		tmpl, err := l.TemplateForContent(page.Source, page.Template)
 		if err != nil {
 			return err
 		}
+
+		sectionForPage := s.ForPage(&page)
+
 		path := filepath.Join(buildDir, page.URL)
-		if err := writeContent(tmpl, page, path); err != nil {
+		if err := writeContent(tmpl, sectionForPage, path); err != nil {
 			return err
 		}
 	}
