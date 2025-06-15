@@ -18,7 +18,7 @@ It satisfies my needs. Perhaps it will satisfy yours too.
 ## Getting Started
 
 ```bash
-go install github.com/fivethirty/satisficer@latest
+go install github.com/fivethirty/satisficer
 ```
 
 ## Usage
