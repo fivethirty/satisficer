@@ -42,13 +42,14 @@ func TestGenerate(t *testing.T) {
 					map[string]any{
 						"title":     "Home Page",
 						"createdAt": "2025-05-13T00:00:00Z",
+						"template":  "index.html.tmpl",
 					},
 					"# Welcome to the Home Page",
 				),
 			),
 		}
 		indexTemplateFile = &fstest.MapFile{
-			Data: []byte("{{ .Index.Title }}"),
+			Data: []byte("{{ .Current.Title }}"),
 		}
 		pageFile = &fstest.MapFile{
 			Data: []byte(
@@ -57,13 +58,14 @@ func TestGenerate(t *testing.T) {
 					map[string]any{
 						"title":     "Home Page",
 						"createdAt": "2025-05-13T00:00:00Z",
+						"template":  "page.html.tmpl",
 					},
 					"# Welcome to Some Other Page",
 				),
 			),
 		}
 		pageTemplateFile = &fstest.MapFile{
-			Data: []byte("{{ .Title }}"),
+			Data: []byte("{{ .Current.Title }}"),
 		}
 		simpleLayoutFS = fstest.MapFS{
 			"index.html.tmpl": indexTemplateFile,
@@ -204,12 +206,12 @@ func TestPageTemplateRendering(t *testing.T) {
 	t.Parallel()
 
 	var sb strings.Builder
-	sb.WriteString("{{ .URL}}\n")
-	sb.WriteString("{{ .Source}}\n")
-	sb.WriteString("{{ .Title}}\n")
-	sb.WriteString("{{ .CreatedAt}}\n")
-	sb.WriteString("{{ .UpdatedAt}}\n")
-	sb.WriteString("{{ .Content}}\n")
+	sb.WriteString("{{ .Current.URL}}\n")
+	sb.WriteString("{{ .Current.Source}}\n")
+	sb.WriteString("{{ .Current.Title}}\n")
+	sb.WriteString("{{ .Current.CreatedAt}}\n")
+	sb.WriteString("{{ .Current.UpdatedAt}}\n")
+	sb.WriteString("{{ .Current.Content}}\n")
 	pageTemplate := sb.String()
 
 	layoutFS := fstest.MapFS{
@@ -238,6 +240,7 @@ func TestPageTemplateRendering(t *testing.T) {
 							"title":     "Test Page",
 							"createdAt": "2025-05-13T00:00:00Z",
 							"updatedAt": "2025-05-14T00:00:00Z",
+							"template":  "page.html.tmpl",
 						},
 						"# Test Page Content",
 					),
@@ -261,6 +264,7 @@ func TestPageTemplateRendering(t *testing.T) {
 						map[string]any{
 							"title":     "Test Page",
 							"createdAt": "2025-05-13T00:00:00Z",
+							"template":  "page.html.tmpl",
 						},
 						"# Test Page Content",
 					),
@@ -311,13 +315,13 @@ func TestIndexTemplateRendering(t *testing.T) {
 	t.Parallel()
 
 	var sb strings.Builder
-	sb.WriteString("{{ .Index.URL }}\n")
-	sb.WriteString("{{ .Index.Source }}\n")
-	sb.WriteString("{{ .Index.Title }}\n")
-	sb.WriteString("{{ .Index.CreatedAt }}\n")
-	sb.WriteString("{{ .Index.UpdatedAt }}\n")
-	sb.WriteString("{{ .Index.Content }}\n")
-	sb.WriteString("{{ range .Pages }}")
+	sb.WriteString("{{ .Current.URL }}\n")
+	sb.WriteString("{{ .Current.Source }}\n")
+	sb.WriteString("{{ .Current.Title }}\n")
+	sb.WriteString("{{ .Current.CreatedAt }}\n")
+	sb.WriteString("{{ .Current.UpdatedAt }}\n")
+	sb.WriteString("{{ .Current.Content }}\n")
+	sb.WriteString("{{ range .Others }}")
 	sb.WriteString("{{ .URL }}\n")
 	sb.WriteString("{{ .Source }}\n")
 	sb.WriteString("{{ .Title }}\n")
@@ -330,7 +334,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 	sb.WriteString("{{ end }}")
 	indexTemplate := sb.String()
 
-	pageTemplate := "{{ .Content }}\n"
+	pageTemplate := "{{ .Current.Content }}\n"
 
 	layoutFS := fstest.MapFS{
 		"index.html.tmpl": {
@@ -362,6 +366,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 								"title":     "Home Page",
 								"createdAt": "2025-05-13T00:00:00Z",
 								"updatedAt": "2025-05-14T00:00:00Z",
+								"template":  "index.html.tmpl",
 							},
 							"# Welcome to the Home Page",
 						),
@@ -375,6 +380,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 								"title":     "Page 1",
 								"createdAt": "2025-05-15T00:00:00Z",
 								"updatedAt": "2025-05-16T00:00:00Z",
+								"template":  "page.html.tmpl",
 							},
 							"# Content of Page 1",
 						),
@@ -388,6 +394,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 								"title":     "Page 2",
 								"createdAt": "2025-05-17T00:00:00Z",
 								"updatedAt": "2025-05-18T00:00:00Z",
+								"template":  "page.html.tmpl",
 							},
 							"# Content of Page 2",
 						),

@@ -25,6 +25,7 @@ type FrontMatter struct {
 	Title     string     `json:"title"`
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt *time.Time `json:"updatedAt"`
+	Template  string     `json:"template"`
 }
 
 func (fm *FrontMatter) validate() error {
@@ -34,6 +35,9 @@ func (fm *FrontMatter) validate() error {
 	}
 	if fm.CreatedAt.IsZero() {
 		missingFields = append(missingFields, "created-at")
+	}
+	if fm.Template == "" {
+		missingFields = append(missingFields, "template")
 	}
 	if len(missingFields) > 0 {
 		return fmt.Errorf(

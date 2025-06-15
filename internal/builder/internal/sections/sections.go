@@ -15,9 +15,9 @@ import (
 )
 
 type Section struct {
-	Index *Page
-	Pages Pages
-	Files []File
+	Current *Page
+	Others  Pages
+	Files   []File
 }
 type Pages []Page
 
@@ -28,6 +28,7 @@ type Page struct {
 	CreatedAt time.Time
 	UpdatedAt *time.Time
 	Content   string
+	Template  string
 }
 
 type File struct {
@@ -52,8 +53,8 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 		dir := filepath.Dir(path)
 		if _, ok := sections[dir]; !ok {
 			sections[dir] = &Section{
-				Pages: make([]Page, 0, 10),
-				Files: make([]File, 0, 10),
+				Others: make([]Page, 0, 10),
+				Files:  make([]File, 0, 10),
 			}
 		}
 
@@ -81,14 +82,10 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 			CreatedAt: parsed.FrontMatter.CreatedAt,
 			UpdatedAt: parsed.FrontMatter.UpdatedAt,
 			Content:   parsed.HTML,
+			Template:  parsed.FrontMatter.Template,
 		}
 
-		if filepath.Base(path) == "index.md" {
-			sections[dir].Index = &page
-			return nil
-		}
-
-		sections[dir].Pages = append(sections[dir].Pages, page)
+		sections[dir].Others = append(sections[dir].Others, page)
 
 		return nil
 	})
@@ -124,4 +121,19 @@ func (p Pages) ByCreatedAt() Pages {
 func (p Pages) Reverse() Pages {
 	slices.Reverse(p)
 	return p
+}
+
+func (s *Section) ForPage(page *Page) *Section {
+	otherPages := make(Pages, 0, len(s.Others))
+	for _, p := range s.Others {
+		if p.Source != page.Source {
+			otherPages = append(otherPages, p)
+		}
+	}
+
+	return &Section{
+		Current: page,
+		Others:  otherPages,
+		Files:   s.Files,
+	}
 }
