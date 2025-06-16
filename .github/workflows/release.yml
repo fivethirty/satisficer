@@ -23,8 +23,8 @@ jobs:
           GOOS: linux
           GOARCH: amd64
         run: |
-          go build -o satisficer-linux-amd64 main.go
-          tar -czf satisficer-linux-amd64.tar.gz satisficer-linux-amd64
+          go build -o satisficer main.go
+          tar -czf satisficer-linux-amd64.tar.gz satisficer
       
       - name: Generate checksums
         run: |
