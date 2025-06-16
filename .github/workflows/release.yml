@@ -23,7 +23,9 @@ jobs:
           GOOS: linux
           GOARCH: amd64
         run: |
-          go build -o satisficer main.go
+          go build \
+            -ldflags "-X github.com/fivethirty/satisficer/internal/commands.version=${GITHUB_REF_NAME}" \
+            -o satisficer main.go
           tar -czf satisficer-linux-amd64.tar.gz satisficer
       
       - name: Generate checksums

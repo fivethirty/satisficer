@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/fivethirty/satisficer/internal/builder"
@@ -149,8 +150,30 @@ var SubCommands = map[string]*Command{
 	}(),
 }
 
+var version = ""
+
+func getVersion() string {
+	if version != "" {
+		return version
+	}
+
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "(devel)"
+	}
+
+	if info.Main.Version == "" {
+		return "(devel)"
+	}
+
+	return info.Main.Version
+}
+
 func mainCommand(name string) *Command {
 	fs := flagSet(name)
+	var showVersion bool
+	fs.BoolVar(&showVersion, "version", false, "")
+	fs.BoolVar(&showVersion, "v", false, "")
 	c := &Command{
 		UsageText: readUsageText("usage/main.txt"),
 		FlagSet:   fs,
@@ -160,6 +183,10 @@ func mainCommand(name string) *Command {
 	}
 
 	c.Run = func() error {
+		if showVersion {
+			_, _ = fmt.Fprintf(DefaultWriter, "satisficer version %s\n", getVersion())
+			return nil
+		}
 		subName := fs.Arg(0)
 		if subName == "" {
 			return c.usage(nil)

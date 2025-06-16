@@ -1,9 +1,14 @@
 Usage: satisficer [options] <command>
 
+Options:
+
+	-v, --version   Show version information
+	-h, --help      Show this help message
+
 Commands:
 
-	create   Create a new project.
-	serve    Start a local dev server.
-	build    Build a site.
+	create   Create a new project
+	serve    Start a local dev server
+	build    Build a site
 
 Use 'satisficer <command> -h' for more information on a command.
