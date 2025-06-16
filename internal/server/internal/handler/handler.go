@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -151,9 +152,22 @@ func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bufContent := wrapped.buf.Bytes()
-	body := responsebody.WithReloadHTML(bufContent)
 
-	_, err := w.Write(body)
+	contentType := wrapped.header.Get("Content-Type")
+	if strings.Contains(contentType, "text/html") {
+		bufContent = responsebody.WithReloadHTML(bufContent)
+	}
+
+	for key, values := range wrapped.header {
+		if key == "Content-Length" || key == "Last-Modified" || key == "Etag" {
+			continue
+		}
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	_, err := w.Write(bufContent)
 	if err != nil {
 		http.Error(w, "failed to write response", http.StatusInternalServerError)
 		return
