@@ -1,6 +1,6 @@
 <script>
 	const eventSource = new EventSource('/_/events');
 	eventSource.onmessage = function (event) {
-		window.location.reload();
+		window.location.reload(true);
 	};
 </script>
