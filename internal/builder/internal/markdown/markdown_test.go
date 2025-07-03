@@ -193,6 +193,29 @@ func TestParse(t *testing.T) {
 				HTML: `<p><a href="#heading">section</a></p>` + "\n",
 			},
 		},
+		{
+			name: "can load a page with uglyURL set to true",
+			markdown: testutil.ToContent(
+				t,
+				map[string]any{
+					"title":     "Test Title",
+					"createdAt": "2025-05-13T00:00:00Z",
+					"template":  "page.html.tmpl",
+					"uglyURL":   true,
+				},
+				"# Test Content",
+			),
+			wantPage: &markdown.ParsedFile{
+				FrontMatter: markdown.FrontMatter{
+					Title:     "Test Title",
+					CreatedAt: time.Date(2025, 5, 13, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: nil,
+					Template:  "page.html.tmpl",
+					UglyURL:   true,
+				},
+				HTML: "<h1>Test Content</h1>\n",
+			},
+		},
 	}
 
 	for _, test := range tests {

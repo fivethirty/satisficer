@@ -29,6 +29,7 @@ type Page struct {
 	UpdatedAt *time.Time
 	Content   string
 	Template  string
+	UglyURL   bool
 }
 
 type File struct {
@@ -76,13 +77,14 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 		}
 
 		page := Page{
-			URL:       url(path),
+			URL:       url(path, parsed.FrontMatter.UglyURL),
 			Source:    path,
 			Title:     parsed.FrontMatter.Title,
 			CreatedAt: parsed.FrontMatter.CreatedAt,
 			UpdatedAt: parsed.FrontMatter.UpdatedAt,
 			Content:   parsed.HTML,
 			Template:  parsed.FrontMatter.Template,
+			UglyURL:   parsed.FrontMatter.UglyURL,
 		}
 
 		sections[dir].Others = append(sections[dir].Others, page)
@@ -95,9 +97,9 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 	return sections, nil
 }
 
-func url(path string) string {
+func url(path string, uglyURL bool) string {
 	trimmed := strings.TrimSuffix(path, ".md")
-	if filepath.Base(path) == "index.md" {
+	if filepath.Base(path) == "index.md" || uglyURL {
 		return fmt.Sprintf("%s.html", trimmed)
 	} else {
 		return filepath.Join(trimmed, "index.html")
