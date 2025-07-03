@@ -26,6 +26,7 @@ type FrontMatter struct {
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt *time.Time `json:"updatedAt"`
 	Template  string     `json:"template"`
+	UglyURL   bool       `json:"uglyURL"`
 }
 
 func (fm *FrontMatter) validate() error {

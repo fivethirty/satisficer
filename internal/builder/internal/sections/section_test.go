@@ -13,8 +13,20 @@ import (
 	"github.com/fivethirty/satisficer/internal/builder/internal/sections"
 )
 
-func fakeParseFunc(_ io.Reader) (*markdown.ParsedFile, error) {
-	return &markdown.ParsedFile{}, nil
+func fakeParseFunc(r io.Reader) (*markdown.ParsedFile, error) {
+	content, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	// Simple parser that looks for "uglyURL" in the content
+	uglyURL := string(content) == "uglyURL"
+
+	return &markdown.ParsedFile{
+		FrontMatter: markdown.FrontMatter{
+			UglyURL: uglyURL,
+		},
+	}, nil
 }
 
 func TestFromFS(t *testing.T) {
@@ -86,6 +98,24 @@ func TestFromFS(t *testing.T) {
 							URL: "about.html",
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "can handle uglyURL frontmatter",
+			contentFS: fstest.MapFS{
+				"post.md": &fstest.MapFile{Data: []byte("uglyURL")},
+			},
+			expected: map[string]*sections.Section{
+				".": {
+					Others: []sections.Page{
+						{
+							URL:     "post.html",
+							Source:  "post.md",
+							UglyURL: true,
+						},
+					},
+					Files: []sections.File{},
 				},
 			},
 		},
