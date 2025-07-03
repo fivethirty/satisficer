@@ -61,7 +61,7 @@ The `content` directory contains a site's content.
 #### Markdown Content
 
 All markdown content must contain a JSON front matter block at the top of the
-file as follows. All fields except `updatedAt` are required.
+file as follows. All fields except `updatedAt` and `uglyURL` are required.
 
 ```markdown
 ---
@@ -70,7 +70,8 @@ file as follows. All fields except `updatedAt` are required.
     "description": "It's so cool.",
     "createdAt": "2023-06-09T12:00:00Z",
     "updatedAt": "2023-06-09T12:00:00Z",
-    "template": "custom.html.tmpl"
+    "template": "custom.html.tmpl",
+    "uglyURL": false
 }
 ---
 # Cool Page
@@ -84,6 +85,9 @@ to the following logic:
 - Any other markdown file is rendered into `index.html` in a new subdirectory
   with the same name as the file. For example, `content/about.md` is rendered to
   `<output>/about/index.html`.
+- Pages with `"uglyURL": true` in frontmatter are rendered as direct `.html` files
+  instead of subdirectories. For example, `content/about.md` with `uglyURL: true`
+  is rendered to `<output>/about.html`.
 
 #### Non-Markdown Content
 
