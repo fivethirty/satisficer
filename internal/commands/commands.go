@@ -28,8 +28,10 @@ type Command struct {
 // Bit of a hack that these are empty, but they allow us to figure out
 // when to exit with a specific error code upstream without polluting
 // the log message.
-var ErrBadCommand = errors.New("")
-var ErrHelp = errors.New("")
+var (
+	ErrBadCommand = errors.New("")
+	ErrHelp       = errors.New("")
+)
 
 func (sc *Command) usage(err error) error {
 	_, _ = fmt.Fprintln(DefaultWriter, sc.UsageText)

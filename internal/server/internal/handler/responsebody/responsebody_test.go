@@ -117,5 +117,4 @@ func TestWithReloadHTML(t *testing.T) {
 			}
 		})
 	}
-
 }

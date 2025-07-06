@@ -48,8 +48,13 @@ func Serve(projectFS fs.FS, port uint16) error {
 	)
 
 	serverErr := make(chan error, 1)
+	s := &http.Server{
+		Addr:        portStr,
+		Handler:     h,
+		ReadTimeout: 10 * time.Second,
+	}
 	go func() {
-		if err := http.ListenAndServe(portStr, h); err != nil {
+		if err := s.ListenAndServe(); err != nil {
 			serverErr <- err
 		}
 	}()

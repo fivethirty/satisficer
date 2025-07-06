@@ -55,5 +55,4 @@ func TestSortedPaths(t *testing.T) {
 			}
 		})
 	}
-
 }

@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	dirPerm   = 0750
+	filePerm  = 0644
 	buildFile = "foo/index.html"
 )
 
@@ -33,10 +35,10 @@ func (b *fakeBuilder) Build(buildDir string) error {
 		return b.err
 	}
 	dest := filepath.Join(buildDir, buildFile)
-	if err := os.MkdirAll(filepath.Dir(dest), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), dirPerm); err != nil {
 		return err
 	}
-	return os.WriteFile(dest, []byte(b.content), os.ModePerm)
+	return os.WriteFile(dest, []byte(b.content), filePerm)
 }
 
 type fakeWatcher struct {
@@ -119,7 +121,6 @@ func TestHandler(t *testing.T) {
 					t.Fatalf("timeout waiting for rebuild event")
 				}
 			}
-
 		})
 	}
 }

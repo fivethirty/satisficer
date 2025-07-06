@@ -8,6 +8,10 @@ import (
 	"path/filepath"
 )
 
+const (
+	dirPerm = 0750
+)
+
 func CopyFS(src fs.FS, destDir string) error {
 	if src == nil {
 		return nil
@@ -40,11 +44,12 @@ func CopyFile(fsys fs.FS, path string, destDir string) error {
 }
 
 func CreateFile(path string) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return nil, err
 	}
 
-	destFile, err := os.Create(path)
+	cleaned := filepath.Clean(path)
+	destFile, err := os.Create(cleaned)
 	if err != nil {
 		return nil, err
 	}

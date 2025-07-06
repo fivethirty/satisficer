@@ -10,6 +10,10 @@ import (
 	"github.com/fivethirty/satisficer/internal/fsutil"
 )
 
+const (
+	dirPerm = 0750
+)
+
 //go:embed starter
 var starter embed.FS
 
@@ -20,7 +24,7 @@ func Create(dir string) error {
 		return fmt.Errorf("'%s' already exists", dir)
 	}
 
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		return err
 	}
 

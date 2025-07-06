@@ -59,5 +59,4 @@ func TestCopyFS(t *testing.T) {
 			}
 		})
 	}
-
 }
