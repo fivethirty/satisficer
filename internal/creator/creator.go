@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	dirPerm = 0750
+	dirPerm = 0o750
 )
 
 //go:embed starter

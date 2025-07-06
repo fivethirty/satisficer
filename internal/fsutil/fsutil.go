@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	dirPerm = 0750
+	dirPerm = 0o750
 )
 
 func CopyFS(src fs.FS, destDir string) error {

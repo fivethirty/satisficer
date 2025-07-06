@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	dirPerm   = 0750
-	filePerm  = 0644
+	dirPerm   = 0o750
+	filePerm  = 0o644
 	buildFile = "foo/index.html"
 )
 
