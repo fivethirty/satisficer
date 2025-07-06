@@ -298,7 +298,8 @@ func TestPageTemplateRendering(t *testing.T) {
 			}
 
 			actualFile := filepath.Join(dir, htmlPath)
-			actualContent, err := os.ReadFile(actualFile)
+			cleaned := filepath.Clean(actualFile)
+			actualContent, err := os.ReadFile(cleaned)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -445,7 +446,8 @@ func TestIndexTemplateRendering(t *testing.T) {
 			}
 
 			actualFile := filepath.Join(dir, htmlPath)
-			actualContent, err := os.ReadFile(actualFile)
+			cleaned := filepath.Clean(actualFile)
+			actualContent, err := os.ReadFile(cleaned)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -6,7 +6,16 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+    - gosec
+    - gocritic
+    - misspell
+    - unparam
+    - gocyclo
+    - dupl
+    - goconst
+    - unconvert
 formatters:
   enable:
-    - gofmt
+    - gofumpt
+    - goimports
     - golines

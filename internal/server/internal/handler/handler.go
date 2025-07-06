@@ -213,5 +213,4 @@ func (h *Handler) rebuild() {
 			fileServer: http.FileServer(http.Dir(dir)),
 		},
 	)
-
 }

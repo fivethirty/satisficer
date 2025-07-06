@@ -125,7 +125,9 @@ func TestHelp(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			allArgs := [][]string{test.args}
 			for _, arg := range []string{"-h", "-help", "--help"} {
-				args := append(test.args, arg)
+				args := make([]string, len(test.args))
+				copy(args, test.args)
+				args = append(args, arg)
 				allArgs = append(allArgs, args)
 			}
 
