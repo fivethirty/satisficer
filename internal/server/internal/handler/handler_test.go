@@ -2,7 +2,6 @@ package handler_test
 
 import (
 	"bufio"
-	"context"
 	_ "embed"
 	"fmt"
 	"io"
@@ -264,17 +263,25 @@ func TestHandler_RemovesTempFilesOnRebuild(t *testing.T) {
 		content: "initial build",
 	}
 
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
-	h, err := handler.Start(ctx, w, fb, baseDir)
+	h, err := handler.Start(t.Context(), w, fb, baseDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(h)
 	t.Cleanup(server.Close)
 
+	sCh := sseCh(t, server)
+
 	watcherCh <- time.Now()
+
+	select {
+	case err := <-sCh:
+		if err != nil {
+			t.Fatalf("error from SSE client: %v", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for rebuild event")
+	}
 
 	files, err := os.ReadDir(baseDir)
 	if err != nil {

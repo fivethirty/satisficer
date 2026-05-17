@@ -1,6 +1,6 @@
 # Satisficer
 
-![test status](https://github.com/fivethirty/satisficer/actions/workflows/test.yml/badge.svg)
+![test status](https://github.com/fivethirty/satisficer/actions/workflows/checks.yml/badge.svg)
 
 
 Satisficer is a simple, opinionated static site generator written in Go. It does
