@@ -32,6 +32,11 @@ func Serve(projectFS fs.FS, port uint16) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			slog.Warn("failed to remove server build directory", "path", dir, "error", err)
+		}
+	}()
 	h, err := handler.Start(ctx, w, b, dir)
 	if err != nil {
 		return err
@@ -63,9 +68,6 @@ func Serve(projectFS fs.FS, port uint16) error {
 	case err := <-serverErr:
 		return err
 	case <-sigChan:
-		if err := os.RemoveAll(dir); err != nil {
-			slog.Warn("failed to remove server build directory", "path", dir, "error", err)
-		}
 		return nil
 	}
 }
