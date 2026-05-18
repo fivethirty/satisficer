@@ -11,7 +11,6 @@ import (
 )
 
 type Handler struct {
-	slog.Handler
 	mu *sync.Mutex
 	w  io.Writer
 }
@@ -21,15 +20,17 @@ func NewHandler(w io.Writer) *Handler {
 		w = os.Stderr
 	}
 	return &Handler{
-		Handler: slog.NewTextHandler(w, &slog.HandlerOptions{
-			Level:       slog.LevelInfo,
-			AddSource:   false,
-			ReplaceAttr: nil,
-		}),
 		mu: &sync.Mutex{},
 		w:  w,
 	}
 }
+
+func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= slog.LevelInfo
+}
+
+func (h *Handler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+func (h *Handler) WithGroup(_ string) slog.Handler      { return h }
 
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	strs := []string{
