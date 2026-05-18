@@ -136,7 +136,8 @@ func (h *Handler) files(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wrapped := &bufResponseWriter{
-		buf: bytes.Buffer{},
+		buf:        bytes.Buffer{},
+		statusCode: http.StatusOK,
 	}
 
 	build.fileServer.ServeHTTP(wrapped, r)
