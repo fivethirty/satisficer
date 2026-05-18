@@ -66,7 +66,6 @@ file as follows. All fields except `updatedAt` and `uglyURL` are required.
 ---
 {
     "title": "My Cool Page",
-    "description": "It's so cool.",
     "createdAt": "2023-06-09T12:00:00Z",
     "updatedAt": "2023-06-09T12:00:00Z",
     "template": "custom.html.tmpl",
@@ -173,7 +172,6 @@ Satisficer provides a number of chainable methods on `Pages`:
 ```go
 func (p Pages) ByTitle() Pages
 func (p Pages) ByCreatedAt() Pages
-func (p Pages) ByUpdatedAt() Pages
 func (p Pages) Reverse() Pages
 ```
 
