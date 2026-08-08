@@ -70,6 +70,7 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 		if err != nil {
 			return err
 		}
+		defer file.Close()
 
 		parsed, err := parse(file)
 		if err != nil {
