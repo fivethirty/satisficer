@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -98,12 +99,12 @@ func FromFS(contentFS fs.FS, parse ParseFunc) (map[string]*Section, error) {
 	return sections, nil
 }
 
-func url(path string, uglyURL bool) string {
-	trimmed := strings.TrimSuffix(path, ".md")
-	if filepath.Base(path) == "index.md" || uglyURL {
+func url(filePath string, uglyURL bool) string {
+	trimmed := strings.TrimSuffix(filePath, ".md")
+	if path.Base(filePath) == "index.md" || uglyURL {
 		return fmt.Sprintf("%s.html", trimmed)
 	} else {
-		return filepath.Join(trimmed, "index.html")
+		return path.Join(trimmed, "index.html")
 	}
 }
 
