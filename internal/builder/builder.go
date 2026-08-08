@@ -40,7 +40,7 @@ func New(projectFS fs.FS) (*Builder, error) {
 	}, nil
 }
 
-func valiateBuildDir(buildDir string) error {
+func validateBuildDir(buildDir string) error {
 	info, err := os.Stat(buildDir)
 	if info != nil && !info.IsDir() {
 		return fmt.Errorf("not a directory: %s", buildDir)
@@ -53,7 +53,7 @@ func valiateBuildDir(buildDir string) error {
 
 func (b *Builder) Build(buildDir string) error {
 	slog.Info("Building project", "outputDir", buildDir)
-	if err := valiateBuildDir(buildDir); err != nil {
+	if err := validateBuildDir(buildDir); err != nil {
 		return err
 	}
 
